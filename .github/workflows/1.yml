@@ -1,38 +1,37 @@
-name: 构建 AList Magisk 模块
-
+name: 构建 AList
 on:
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
   push:
     branches:
-      - main
-
+      - main:
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
       # 检出仓库代码
-      - name: 检出仓库
+      - name:  Checkout 检出仓库
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PAT_TOKEN }} # 使用 PAT 用于检出
 
       # 安装依赖工具
-      - name: 安装依赖
+      - name:  Install dependencies 安装依赖
         run: |
           sudo apt-get update
           sudo apt-get install -y curl zip
 
       # 获取 AList 最新版本和校验和
-      - name: 获取 AList 最新版本
+      - name:  Get AList latest version 获取 AList 最新版本
         id: get_version
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           API_URL: https://api.github.com/repos/alist-org/alist/releases/latest
         run: |
           # 三次重试获取 AList Release
           for i in {1..3}; do
-            RESPONSE=$(curl -s -L -w "\n%{http_code}" -H "Authorization: Bearer $GITHUB_TOKEN" "$API_URL")
+            RESPONSE=$(curl -s -L -w "\n%{http_code}" -H "Authorization: Bearer $PAT_TOKEN" "$API_URL")
             HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
             BODY=$(echo "$RESPONSE" | sed '$d')
             if [ "$HTTP_CODE" -eq 200 ] && [ -n "$BODY" ]; then
@@ -79,7 +78,7 @@ jobs:
           echo "ALIST_CHECKSUM_URL=$CHECKSUM_URL" >> $GITHUB_ENV
 
       # 检查当前模块版本
-      - name: 检查当前模块版本
+      - name:  Check current module version 检查当前模块版本
         id: check_version
         run: |
           if [ -f update.json ]; then
@@ -90,7 +89,7 @@ jobs:
           fi
 
       # 比较版本并决定是否构建
-      - name: 检查是否需要构建
+      - name:  Check if build is needed 检查是否需要构建
         id: should_build
         run: |
           if [ "${{ env.CURRENT_VERSION }}" = "none" ] || [ "${{ env.ALIST_VERSION }}" != "${{ env.CURRENT_VERSION }}" ]; then
@@ -102,8 +101,10 @@ jobs:
           fi
 
       # 构建 Magisk 模块并写入仓库
-      - name: 构建 Magisk 模块
+      - name:  Build Magisk module 构建 Magisk 模块
         if: env.SHOULD_BUILD == 'true'
+        env:
+          PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
         run: |
           mkdir -p Alist-Magisk/system/bin
           
@@ -216,19 +217,18 @@ jobs:
           git config user.email "actions@github.com"
           git add Alist-Magisk/ update.json
           git commit -m "更新 AList Magisk 模块文件到 ${{ env.ALIST_VERSION }}"
-          git push
           
-          cd Alist-Magisk
-          zip -r ../alist-magisk-${{ env.ALIST_VERSION }}.zip module.prop customize.sh service.sh system CHANGELOG.md
-          cd ..
+          # 使用 PAT 进行推送
+          git remote set-url origin https://x-access-token:${PAT_TOKEN}@github.com/Alien-Et/Alist-Magisk.git
+          git push origin main
 
       # 创建 GitHub Release
-      - name: 创建 GitHub Release
+      - name:  Create GitHub Release 创建 GitHub Release
         if: env.SHOULD_BUILD == 'true'
         id: create_release
         uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           tag_name: ${{ env.ALIST_VERSION }}
           release_name: AList Magisk Module ${{ env.ALIST_VERSION }}
@@ -236,37 +236,19 @@ jobs:
           prerelease: false
 
       # 上传模块到 Release
-      - name: 上传模块到 Release
+      - name:  Upload module to Release 上传模块到 Release
         if: env.SHOULD_BUILD == 'true'
         uses: actions/upload-release-asset@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./alist-magisk-${{ env.ALIST_VERSION }}.zip
           asset_name: alist-magisk-${{ env.ALIST_VERSION }}.zip
           asset_content_type: application/zip
 
-      # 发送 Discord 通知
-      - name: 通知 Discord
-        if: env.SHOULD_BUILD == 'true'
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: "新 AList Magisk 模块发布: ${{ env.ALIST_VERSION }}"
-
-      # 发送失败通知
-      - name: 通知 Discord 失败
-        if: failure()
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: "AList Magisk 模块构建失败: ${{ env.ALIST_VERSION }}"
-
       # 清理工作目录
-      - name: 清理工作目录
+      - name:  Clean up workspace 清理工作目录
         if: always()
         run: |
           rm -rf alist-magisk-*.zip alist-arm*.tar.gz latest_release.json
