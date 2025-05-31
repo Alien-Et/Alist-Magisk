@@ -36,7 +36,7 @@ jobs:
       - name: 获取 AList 最新版本
         id: get_version
         run: |
-          # 使用 ghproxy.com 加速国内访问，三次重试
+          # 获取 AList 官方 API 版本，三次重试
           for i in {1..3}; do
             LATEST_RELEASE=$(curl -s --retry 3 https://api.github.com/repos/alist-org/alist/releases/latest)
             if [ -n "$LATEST_RELEASE" ]; then break; fi
@@ -51,7 +51,7 @@ jobs:
           ARM_URL=$(echo $LATEST_RELEASE | jq -r '.assets[] | select(.name | contains("alist-android-arm.tar.gz")) | .browser_download_url')
           ARM64_URL=$(echo $LATEST_RELEASE | jq -r '.assets[] | select(.name | contains("alist-android-arm64.tar.gz")) | .browser_download_url')
           CHANGELOG=$(echo $LATEST_RELEASE | jq -r .body | sed 's/"/\\"/g')
-          # 获取校验和（假设 AList 提供 checksums.txt 或类似文件）
+          # 获取校验和（假设 AList 提供 checksums.txt）
           CHECKSUM_URL=$(echo $LATEST_RELEASE | jq -r '.assets[] | select(.name | contains("checksums.txt")) | .browser_download_url // empty')
           echo "ALIST_VERSION=$VERSION" >> $GITHUB_ENV
           echo "ALIST_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
