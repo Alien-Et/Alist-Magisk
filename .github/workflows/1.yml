@@ -17,28 +17,22 @@ jobs:
       - name: 检出仓库
         uses: actions/checkout@v4
 
-      # 设置 Node.js 环境
-      - name: 设置 Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
       # 安装依赖工具
       - name: 安装依赖
         run: |
           sudo apt-get update
-          sudo apt-get install -y jq curl zip
+          sudo apt-get install -y curl zip
 
       # 获取 AList 最新版本和校验和
       - name: 获取 AList 最新版本
         id: get_version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          API_URL: https://api.github.com/repos/alist-org/alist/releases/latest
         run: |
           # 三次重试获取 AList Release
           for i in {1..3}; do
-            RESPONSE=$(curl -s -w "%{http_code}" -H "Authorization: Bearer $GITHUB_TOKEN" \
-              https://api.github.com/repos/alist-org/alist/releases/latest)
+            RESPONSE=$(curl -s -L -w "\n%{http_code}" -H "Authorization: Bearer $GITHUB_TOKEN" "$API_URL")
             HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
             BODY=$(echo "$RESPONSE" | sed '$d')
             if [ "$HTTP_CODE" -eq 200 ] && [ -n "$BODY" ]; then
@@ -47,7 +41,7 @@ jobs:
               break
             fi
             echo "尝试 $i 失败，HTTP 状态码: $HTTP_CODE"
-            sleep $((5 * i))  # 指数退避
+            sleep $((5 * i))
           done
           
           # 检查是否获取到有效数据
@@ -56,24 +50,26 @@ jobs:
             exit 1
           fi
           
-          # 验证 JSON 并提取版本
-          if ! jq -e . latest_release.json >/dev/null; then
-            echo "::error::无效的 JSON 数据"
+          # 提取版本号
+          VERSION=$(echo "$BODY" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+          if [ -z "$VERSION" ]; then
+            echo "::error::无法提取版本号，tag_name 可能不存在"
             cat latest_release.json
             exit 1
           fi
           
-          VERSION=$(jq -r .tag_name latest_release.json)
-          if [ -z "$VERSION" ]; then
-            echo "::error::无法提取版本号，tag_name 可能不存在"
+          # 提取其他字段
+          VERSION_CODE=$(echo "$VERSION" | tr -d 'v' | tr -d '.' | awk '{printf "%d%02d", $1, $2}')
+          ARM_URL=$(echo "$BODY" | grep '"browser_download_url":' | grep 'alist-android-arm.tar.gz' | sed -E 's/.*"([^"]+)".*/\1/')
+          ARM64_URL=$(echo "$BODY" | grep '"browser_download_url":' | grep 'alist-android-arm64.tar.gz' | sed -E 's/.*"([^"]+)".*/\1/')
+          CHANGELOG=$(echo "$BODY" | grep '"body":' | sed -E 's/.*"body":\s*"([^"]+)"([,}]).*/\1/' | sed 's/\\"/"/g')
+          CHECKSUM_URL=$(echo "$BODY" | grep '"browser_download_url":' | grep 'checksums.txt' | sed -E 's/.*"([^"]+)".*/\1/')
+          
+          # 验证提取结果
+          if [ -z "$ARM_URL" ] || [ -z "$ARM64_URL" ]; then
+            echo "::error::无法提取二进制下载链接"
             exit 1
           fi
-          
-          VERSION_CODE=$(echo $VERSION | tr -d 'v' | tr -d '.' | awk '{printf "%d%02d", $1, $2}')
-          ARM_URL=$(jq -r '.assets[] | select(.name | contains("alist-android-arm.tar.gz")) | .browser_download_url' latest_release.json)
-          ARM64_URL=$(jq -r '.assets[] | select(.name | contains("alist-android-arm64.tar.gz")) | .browser_download_url' latest_release.json)
-          CHANGELOG=$(jq -r .body latest_release.json | sed 's/"/\\"/g')
-          CHECKSUM_URL=$(jq -r '.assets[] | select(.name | contains("checksums.txt")) | .browser_download_url // empty' latest_release.json)
           
           echo "ALIST_VERSION=$VERSION" >> $GITHUB_ENV
           echo "ALIST_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
@@ -87,7 +83,7 @@ jobs:
         id: check_version
         run: |
           if [ -f update.json ]; then
-            CURRENT_VERSION=$(jq -r .version update.json)
+            CURRENT_VERSION=$(grep '"version":' update.json | sed -E 's/.*"version":\s*"([^"]+)".*/\1/')
             echo "CURRENT_VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
           else
             echo "CURRENT_VERSION=none" >> $GITHUB_ENV
@@ -119,7 +115,7 @@ jobs:
           tar -xzf alist-arm64.tar.gz -C Alist-Magisk/system/bin
           mv Alist-Magisk/system/bin/alist Alist-Magisk/system/bin/alist-arm64
           
-          if [ -n "${{ env.ALIST_CHECKSUM_URL }}" ]; then
+          if [ -n "${{ env.ALIST_CHECKSUM_URL}}" ]; then
             curl -L -o Alist-Magisk/system/bin/checksums.txt "${{ env.ALIST_CHECKSUM_URL }}"
           fi
           
@@ -259,6 +255,15 @@ jobs:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
         with:
           args: "新 AList Magisk 模块发布: ${{ env.ALIST_VERSION }}"
+
+      # 发送失败通知
+      - name: 通知 Discord 失败
+        if: failure()
+        uses: Ilshidur/action-discord@master
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        with:
+          args: "AList Magisk 模块构建失败: ${{ env.ALIST_VERSION }}"
 
       # 清理工作目录
       - name: 清理工作目录
