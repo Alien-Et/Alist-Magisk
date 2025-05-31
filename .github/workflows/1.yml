@@ -1,12 +1,9 @@
 name: 构建 AList Magisk 模块
 
 on:
-  # 定时任务，每天 UTC 00:00（北京时间 08:00）运行
   schedule:
     - cron: '0 0 * * *'
-  # 允许手动触发
   workflow_dispatch:
-  # 首次推送时触发
   push:
     branches:
       - main
@@ -20,7 +17,7 @@ jobs:
       - name: 检出仓库
         uses: actions/checkout@v4
 
-      # 设置 Node.js 环境（用于处理 JSON）
+      # 设置 Node.js 环境
       - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
@@ -35,24 +32,49 @@ jobs:
       # 获取 AList 最新版本和校验和
       - name: 获取 AList 最新版本
         id: get_version
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 获取 AList 官方 API 版本，三次重试
+          # 三次重试获取 AList Release
           for i in {1..3}; do
-            LATEST_RELEASE=$(curl -s --retry 3 https://api.github.com/repos/alist-org/alist/releases/latest)
-            if [ -n "$LATEST_RELEASE" ]; then break; fi
-            sleep 5
+            RESPONSE=$(curl -s -w "%{http_code}" -H "Authorization: Bearer $GITHUB_TOKEN" \
+              https://api.github.com/repos/alist-org/alist/releases/latest)
+            HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+            BODY=$(echo "$RESPONSE" | sed '$d')
+            if [ "$HTTP_CODE" -eq 200 ] && [ -n "$BODY" ]; then
+              echo "成功获取 AList Release 数据"
+              echo "$BODY" > latest_release.json
+              break
+            fi
+            echo "尝试 $i 失败，HTTP 状态码: $HTTP_CODE"
+            sleep $((5 * i))  # 指数退避
           done
-          if [ -z "$LATEST_RELEASE" ]; then
-            echo "无法获取 AList 版本信息"
+          
+          # 检查是否获取到有效数据
+          if [ ! -f latest_release.json ] || [ ! -s latest_release.json ]; then
+            echo "::error::无法获取 AList 版本信息"
             exit 1
           fi
-          VERSION=$(echo $LATEST_RELEASE | jq -r .tag_name)
+          
+          # 验证 JSON 并提取版本
+          if ! jq -e . latest_release.json >/dev/null; then
+            echo "::error::无效的 JSON 数据"
+            cat latest_release.json
+            exit 1
+          fi
+          
+          VERSION=$(jq -r .tag_name latest_release.json)
+          if [ -z "$VERSION" ]; then
+            echo "::error::无法提取版本号，tag_name 可能不存在"
+            exit 1
+          fi
+          
           VERSION_CODE=$(echo $VERSION | tr -d 'v' | tr -d '.' | awk '{printf "%d%02d", $1, $2}')
-          ARM_URL=$(echo $LATEST_RELEASE | jq -r '.assets[] | select(.name | contains("alist-android-arm.tar.gz")) | .browser_download_url')
-          ARM64_URL=$(echo $LATEST_RELEASE | jq -r '.assets[] | select(.name | contains("alist-android-arm64.tar.gz")) | .browser_download_url')
-          CHANGELOG=$(echo $LATEST_RELEASE | jq -r .body | sed 's/"/\\"/g')
-          # 获取校验和（假设 AList 提供 checksums.txt）
-          CHECKSUM_URL=$(echo $LATEST_RELEASE | jq -r '.assets[] | select(.name | contains("checksums.txt")) | .browser_download_url // empty')
+          ARM_URL=$(jq -r '.assets[] | select(.name | contains("alist-android-arm.tar.gz")) | .browser_download_url' latest_release.json)
+          ARM64_URL=$(jq -r '.assets[] | select(.name | contains("alist-android-arm64.tar.gz")) | .browser_download_url' latest_release.json)
+          CHANGELOG=$(jq -r .body latest_release.json | sed 's/"/\\"/g')
+          CHECKSUM_URL=$(jq -r '.assets[] | select(.name | contains("checksums.txt")) | .browser_download_url // empty' latest_release.json)
+          
           echo "ALIST_VERSION=$VERSION" >> $GITHUB_ENV
           echo "ALIST_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
           echo "ALIST_ARM_URL=$ARM_URL" >> $GITHUB_ENV
@@ -60,7 +82,7 @@ jobs:
           echo "ALIST_CHANGELOG=$CHANGELOG" >> $GITHUB_ENV
           echo "ALIST_CHECKSUM_URL=$CHECKSUM_URL" >> $GITHUB_ENV
 
-      # 检查当前模块版本（从本地 update.json）
+      # 检查当前模块版本
       - name: 检查当前模块版本
         id: check_version
         run: |
@@ -87,28 +109,22 @@ jobs:
       - name: 构建 Magisk 模块
         if: env.SHOULD_BUILD == 'true'
         run: |
-          # 创建模块目录结构
           mkdir -p Alist-Magisk/system/bin
           
-          # 下载并解压 AList 32 位二进制
           curl -L -o alist-arm.tar.gz "${{ env.ALIST_ARM_URL }}"
           tar -xzf alist-arm.tar.gz -C Alist-Magisk/system/bin
           mv Alist-Magisk/system/bin/alist Alist-Magisk/system/bin/alist-arm
           
-          # 下载并解压 AList 64 位二进制
           curl -L -o alist-arm64.tar.gz "${{ env.ALIST_ARM64_URL }}"
           tar -xzf alist-arm64.tar.gz -C Alist-Magisk/system/bin
           mv Alist-Magisk/system/bin/alist Alist-Magisk/system/bin/alist-arm64
           
-          # 下载校验和文件（如果存在）
           if [ -n "${{ env.ALIST_CHECKSUM_URL }}" ]; then
             curl -L -o Alist-Magisk/system/bin/checksums.txt "${{ env.ALIST_CHECKSUM_URL }}"
           fi
           
-          # 设置二进制权限
           chmod 755 Alist-Magisk/system/bin/alist-arm Alist-Magisk/system/bin/alist-arm64
           
-          # 创建 module.prop
           cat > Alist-Magisk/module.prop << EOF
           id=alist-magisk
           name=AList Magisk Module
@@ -119,20 +135,12 @@ jobs:
           updateJson=https://raw.githubusercontent.com/Alien-Et/Alist-Magisk/main/update.json
           EOF
           
-          # 创建 customize.sh
           cat > Alist-Magisk/customize.sh << 'EOF'
           #!/system/bin/sh
-          # 打印安装信息
           ui_print "正在安装 AList Magisk 模块..."
-
-          # 检测 CPU 架构
           ARCH=$(getprop ro.product.cpu.abi)
           ui_print "检测到架构: $ARCH"
-
-          # 定义校验和文件
           CHECKSUM_FILE="$MODPATH/system/bin/checksums.txt"
-
-          # 校验二进制文件
           if [ -f "$CHECKSUM_FILE" ]; then
             ui_print "正在校验二进制文件..."
             if echo "$ARCH" | grep -q "arm64"; then
@@ -150,8 +158,6 @@ jobs:
           else
             ui_print "未找到校验和文件，跳过校验"
           fi
-
-          # 根据架构选择二进制文件
           if echo "$ARCH" | grep -q "arm64"; then
             ui_print "安装 64 位 AList 二进制..."
             mv $MODPATH/system/bin/alist-arm64 $MODPATH/system/bin/alist
@@ -161,32 +167,17 @@ jobs:
             mv $MODPATH/system/bin/alist-arm $MODPATH/system/bin/alist
             rm $MODPATH/system/bin/alist-arm64
           fi
-
-          # 删除校验和文件
           rm -f "$CHECKSUM_FILE"
-
-          # 设置二进制权限
           chmod 755 $MODPATH/system/bin/alist
           ui_print "AList 已安装到 /system/bin/alist"
-
-          # 定义数据目录和密码文件
           DATA_DIR="$MODPATH/data"
           PASSWORD_FILE="$MODPATH/密码.txt"
-
-          # 检查 data 目录是否存在且非空
           if [ ! -d "$DATA_DIR" ] || [ -z "$(ls -A $DATA_DIR)" ]; then
-            # 首次安装：创建 data 目录
             mkdir -p "$DATA_DIR"
-            
-            # 设置随机密码并获取输出
             OUTPUT=$(/system/bin/sh -c "cd $MODPATH/system/bin && ./alist admin set random --data $DATA_DIR 2>&1 | grep -E 'username|password' | awk '/username/ {print \"账号：\" \$NF} /password/ {print \"密码：\" \$NF}'")
-            
-            # 输出账号和密码到安装界面
             echo "$OUTPUT" | while IFS= read -r line; do
               ui_print "$line"
             done
-            
-            # 保存密码到 密码.txt（仅保存密码部分）
             echo "$OUTPUT" | grep "密码：" | awk '{print $2}' > "$PASSWORD_FILE"
             chmod 644 "$PASSWORD_FILE"
             ui_print "密码已保存到 $PASSWORD_FILE"
@@ -195,20 +186,13 @@ jobs:
           fi
           EOF
           
-          # 创建 service.sh
           cat > Alist-Magisk/service.sh << 'EOF'
           #!/system/bin/sh
-          # AList 服务启动脚本
-
-          # 定义数据目录
           DATA_DIR="$MODPATH/data"
           ALIST_BINARY="/system/bin/alist"
-
-          # 启动 AList 服务（后台运行）
           $ALIST_BINARY server --data "$DATA_DIR" &
           EOF
           
-          # 创建 update.json（写入根目录）
           cat > update.json << EOF
           {
               "version": "${{ env.ALIST_VERSION }}",
@@ -218,14 +202,12 @@ jobs:
           }
           EOF
           
-          # 创建 CHANGELOG.md
           cat > Alist-Magisk/CHANGELOG.md << EOF
           # Changelog
           - ${{ env.ALIST_VERSION }}: Synced with AList official release ${{ env.ALIST_VERSION }}
           ${{ env.ALIST_CHANGELOG }}
           EOF
           
-          # 创建 README.md
           cat > Alist-Magisk/README.md << EOF
           # AList Magisk 模块
           - 自动同步 AList 官方版本
@@ -234,14 +216,12 @@ jobs:
           - 更新地址: https://raw.githubusercontent.com/Alien-Et/Alist-Magisk/main/update.json
           EOF
           
-          # 提交文件到仓库
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add Alist-Magisk/ update.json
           git commit -m "更新 AList Magisk 模块文件到 ${{ env.ALIST_VERSION }}"
           git push
           
-          # 打包模块（不包含 update.json）
           cd Alist-Magisk
           zip -r ../alist-magisk-${{ env.ALIST_VERSION }}.zip module.prop customize.sh service.sh system CHANGELOG.md
           cd ..
@@ -284,4 +264,4 @@ jobs:
       - name: 清理工作目录
         if: always()
         run: |
-          rm -rf alist-magisk-*.zip alist-arm*.tar.gz
+          rm -rf alist-magisk-*.zip alist-arm*.tar.gz latest_release.json
