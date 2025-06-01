@@ -29,7 +29,10 @@
 
 4. **验证安装**：
    - 检查 `/data/adb/modules/alist-magisk/随机密码.txt` 是否存在（首次启动后生成，格式为“账号：xxx”和“密码：xxx”）。
-   - 查看 `/data/adb/modules/alist-magisk/module.prop`，确认 description 包含账号和密码。
+   - 查看 `/data/adb/modules/alist-magisk/module.prop`，确认 description 包含：
+     ```
+     【运行中】局域网地址：http://<IP>:5244 项目地址：https://github.com/Alien-Et/Alist-Magisk | 初始账号：xxx | 初始密码：xxx（仅未手动修改时有效）
+     ```
    - 运行以下命令检查 AList 服务：
      ```bash
      alist version
@@ -40,10 +43,7 @@
 - **服务管理**：
   - AList 服务在系统启动完成后自动运行（通过 service.sh），模块描述显示：
     ```
-    【运行中】局域网地址：http://<设备IP>:5244 项目地址：https://github.com/Alien-Et/Alist-Magisk
-    初始账号：xxx
-    初始密码：xxx
-    （初始密码仅在你未手动修改时有效）
+    【运行中】局域网地址：http://<设备IP>:5244 项目地址：https://github.com/Alien-Et/Alist-Magisk | 初始账号：xxx | 初始密码：xxx（仅未手动修改时有效）
     ```
   - 在 Magisk 应用中点击“动作”按钮：
     - 如果 AList 服务正在运行，点击停止服务，模块描述更新为：`【已停止】请点击"操作"启动程序。项目地址：https://github.com/Alien-Et/Alist-Magisk`。
@@ -57,7 +57,7 @@
     账号：admin
     密码：xxxxxxxx
     ```
-  - 初始账号和密码显示在 module.prop 的 description 中，带备注“初始密码仅在你未手动修改时有效”。
+  - 初始账号和密码显示在 module.prop 的 description 中，带备注“仅未手动修改时有效”。
 - **更新模块**：通过 Magisk 检查更新，或手动下载最新 ZIP 文件重新安装。
 - **卸载模块**：在 Magisk 中禁用或删除模块，重启设备（data 目录和 随机密码.txt 需手动清理）。
 
@@ -81,6 +81,15 @@
     ```bash
     su -c pkill -f alist
     su -c /data/adb/modules/alist-magisk/action.sh
+    ```
+- **Q: module.prop 未显示账号和密码？**
+  - 确认 `随机密码.txt` 存在且格式正确：
+    ```bash
+    cat /data/adb/modules/alist-magisk/随机密码.txt
+    ```
+  - 手动触发 service.sh：
+    ```bash
+    su -c /data/adb/modules/alist-magisk/service.sh
     ```
 
 ## 更多信息

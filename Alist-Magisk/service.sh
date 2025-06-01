@@ -36,7 +36,7 @@ update_module_prop_running() {
     USERNAME=$(grep "账号：" "$PASSWORD_FILE" | awk '{print $2}')
     PASSWORD=$(grep "密码：" "$PASSWORD_FILE" | awk '{print $2}')
     if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
-      sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL}\n初始账号：${USERNAME}\n初始密码：${PASSWORD}\n（初始密码仅在你未手动修改时有效）|" "$MODULE_PROP"
+      sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL} | 初始账号：${USERNAME} | 初始密码：${PASSWORD}（仅未手动修改时有效）|" "$MODULE_PROP"
     else
       sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL}|" "$MODULE_PROP"
     fi
