@@ -5,7 +5,7 @@
 ## 功能
 - 自动同步 AList 官方版本
 - 支持 ARM 和 ARM64 架构
-- 首次启动生成随机管理员账号和密码，保存到 `/data/adb/modules/alist-magisk/密码.txt`
+- 首次启动生成随机管理员账号和密码，保存到 `/data/adb/modules/alist-magisk/密码.txt`（格式为“账号：xxx”和“密码：xxx”）
 - 系统启动后自动运行 AList 服务，数据存储在模块的 `data` 目录（/data/adb/modules/alist-magisk/data）
 - 通过 Magisk 的“动作”按钮切换 AList 服务状态
 
@@ -27,7 +27,7 @@
    - 安装完成后，重启设备以启动 AList 服务并生成初始密码。
 
 4. **验证安装**：
-   - 检查 `/data/adb/modules/alist-magisk/密码.txt` 是否存在（首次启动后生成）。
+   - 检查 `/data/adb/modules/alist-magisk/密码.txt` 是否存在（首次启动后生成，格式为“账号：xxx”和“密码：xxx”）。
    - 运行以下命令检查 AList 服务：
      ```bash
      alist version
@@ -41,7 +41,12 @@
     - 如果 AList 服务正在运行，点击停止服务，模块描述更新为：`【已停止】请点击"操作"启动程序。项目地址：https://github.com/Alien-Et/Alist-Magisk`。
     - 如果 AList 服务未运行，点击启动服务，模块描述恢复为运行状态。
 - **数据目录**：AList 数据存储在 `/data/adb/modules/alist-magisk/data`，覆盖安装不会重置密码（除非 data 目录被手动删除）。
-- **密码生成**：首次启动服务时生成随机密码，保存到 `密码.txt`，后续启动或覆盖安装保留原有密码。
+- **密码生成**：首次启动服务时生成随机密码，保存到 `密码.txt`，格式为：
+  ```
+  账号：admin
+  密码：xxxxxxxx
+  ```
+  后续启动或覆盖安装保留原有密码。
 - **更新模块**：通过 Magisk 检查更新，或手动下载最新 ZIP 文件重新安装。
 - **卸载模块**：在 Magisk 中禁用或删除模块，重启设备（data 目录需手动清理）。
 

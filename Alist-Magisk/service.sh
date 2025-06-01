@@ -23,14 +23,14 @@ update_module_prop_running() {
 generate_random_password() {
   if [ ! -d "$DATA_DIR" ] || [ -z "$(ls -A $DATA_DIR)" ]; then
     mkdir -p "$DATA_DIR"
-    OUTPUT=$($ALIST_BINARY admin random --data "$DATA_DIR" 2>&1)
-    USERNAME=$(echo "$OUTPUT" | grep -E 'username' | awk '{print $NF}' | head -n 1)
-    PASSWORD=$(echo "$OUTPUT" | grep -E 'password' | awk '{print $NF}' | head -n 1)
-    if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
-      echo "账号: $USERNAME" > "$PASSWORD_FILE"
-      echo "密码: $PASSWORD" >> "$PASSWORD_FILE"
+    OUTPUT=$($ALIST_BINARY admin random --data "$DATA_DIR" 2>&1 | \
+             grep -E "username|password" | \
+             awk '/username/ {print "账号：" $NF} /password/ {print "密码：" $NF}')
+    if [ -n "$OUTPUT" ]; then
+      echo "$OUTPUT" > "$PASSWORD_FILE"
       chmod 644 "$PASSWORD_FILE"
       echo "密码已保存到 $PASSWORD_FILE"
+      echo "$OUTPUT"
     else
       echo "警告: 无法生成或捕获账号和密码"
     fi
