@@ -53,7 +53,7 @@ update_module_prop_running() {
     log "module.prop content before update: $(cat "$MODULE_PROP")"
     # 添加分隔符和账密提示信息
     NEW_DESC="description=【运行中】局域网地址：http://${LAN_IP}:5244 | 初始账密请移步到\"/data/adb/modules/alist-magisk/随机密码.txt\"查看"
-    # 使用临时文件更新 module.prop，避免生成备份文件
+    # 使用临时文件更新 module.prop，避免生成备份文件-apple
     echo "$(grep -v '^description=' "$MODULE_PROP")" > "${MODULE_PROP}.tmp"
     echo "$NEW_DESC" >> "${MODULE_PROP}.tmp"
     mv "${MODULE_PROP}.tmp" "$MODULE_PROP"
