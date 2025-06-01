@@ -99,14 +99,12 @@ jobs:
             echo "SHOULD_BUILD=false" >> $GITHUB_ENV
           fi
 
-      # 删除仓库文件（保留 .github、.git 和 README.md）并构建 Magisk 模块
-      - name: 删除仓库文件并构建 Magisk 模块
+      # 构建 Magisk 模块并覆盖仓库文件
+      - name: 构建 Magisk 模块并覆盖仓库文件
         if: env.SHOULD_BUILD == 'true'
         run: |
-          # 删除除 .git、.github 和 README.md 外的所有文件
-          find . -maxdepth 1 -not -name ".git" -not -name ".github" -not -name "README.md" -not -name "." -exec rm -rf {} +
-
-          # 创建新的模块目录
+          # 创建或覆盖模块目录
+          rm -rf Alist-Magisk
           mkdir -p Alist-Magisk/system/bin
 
           # 下载并解压 AList 二进制
@@ -183,6 +181,101 @@ jobs:
           $ALIST_BINARY server --data "$DATA_DIR" &
           EOF
 
+          # 创建 action.sh
+          cat > Alist-Magisk/action.sh << 'EOF'
+          #!/system/bin/sh
+          # action.sh for AList Magisk Module
+
+          MODDIR=${0%/*}
+          ALIST_BINARY="/system/bin/alist"
+          DATA_DIR="$MODDIR/data"
+          PASSWORD_FILE="$MODDIR/密码.txt"
+
+          check_alist_status() {
+            if pgrep -f "$ALIST_BINARY server --data $DATA_DIR" >/dev/null; then
+              echo "AList 服务正在运行"
+              return 0
+            else
+              echo "AList 服务未运行"
+              return 1
+            fi
+          }
+
+          start_alist() {
+            if check_alist_status; then
+              echo "AList 服务已在运行，无需启动"
+            else
+              $ALIST_BINARY server --data "$DATA_DIR" &
+              sleep 1
+              if check_alist_status; then
+                echo "AList 服务启动成功"
+              else
+                echo "AList 服务启动失败"
+                exit 1
+              fi
+            fi
+          }
+
+          stop_alist() {
+            if check_alist_status; then
+              pkill -f "$ALIST_BINARY server --data $DATA_DIR"
+              sleep 1
+              if check_alist_status; then
+                echo "AList 服务停止失败"
+                exit 1
+              else
+                echo "AList 服务已停止"
+              fi
+            else
+              echo "AList 服务未运行，无需停止"
+            fi
+          }
+
+          reset_password() {
+            echo "正在重置 AList 管理员密码..."
+            OUTPUT=$($ALIST_BINARY admin random --data "$DATA_DIR" 2>&1)
+            USERNAME=$(echo "$OUTPUT" | grep -E 'username' | awk '{print $NF}' | head -n 1)
+            PASSWORD=$(echo "$OUTPUT" | grep -E 'password' | awk '{print $NF}' | head -n 1)
+            if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+              echo "账号: $USERNAME" > "$PASSWORD_FILE"
+              echo "密码: $PASSWORD" >> "$PASSWORD_FILE"
+              chmod 644 "$PASSWORD_FILE"
+              echo "新密码已保存到 $PASSWORD_FILE"
+              echo "账号: $USERNAME"
+              echo "密码: $PASSWORD"
+            else
+              echo "密码重置失败"
+              exit 1
+            fi
+          }
+
+          case "$1" in
+            start)
+              start_alist
+              ;;
+            stop)
+              stop_alist
+              ;;
+            reset)
+              reset_password
+              ;;
+            status)
+              check_alist_status
+              ;;
+            *)
+              check_alist_status
+              echo "用法: $0 {start|stop|reset|status}"
+              echo "  start  - 启动 AList 服务"
+              echo "  stop   - 停止 AList 服务"
+              echo "  reset  - 重置 AList 管理员密码"
+              echo "  status - 检查 AList 服务状态"
+              exit 0
+              ;;
+          esac
+          EOF
+
+          chmod 755 Alist-Magisk/action.sh
+
           # 创建 update.json
           cat > update.json << EOF
           {
@@ -211,10 +304,11 @@ jobs:
           - 支持 ARM 和 ARM64 架构
           - 首次安装生成随机管理员账号和密码，保存到 \`/data/adb/modules/alist-magisk/密码.txt\`
           - 自动启动 AList 服务，数据存储在模块的 \`data\` 目录
+          - 支持动作按钮，管理 AList 服务
 
           ## 安装流程
           1. **准备工作**：
-             - 确保设备已安装 Magisk（建议最新版本）。
+             - 确保设备已安装 Magisk（建议 v28.0 或更高版本以支持动作按钮）。
              - 设备已获得 Root 权限。
              - 确保有网络连接以下载模块。
 
@@ -239,7 +333,16 @@ jobs:
              - 访问 AList Web 界面（默认：http://localhost:5244，使用 \`密码.txt\` 中的账号和密码登录）。
 
           ## 使用说明
-          - **服务管理**：模块安装后，AList 服务自动启动，数据存储在 \`/data/adb/modules/alist-magisk/data\`。
+          - **服务管理**：
+            - AList 服务在系统启动时自动运行（通过 service.sh）。
+            - 使用 Magisk 应用的“动作”按钮检查服务状态。
+            - 手动管理服务：
+              \`\`\`bash
+              su -c /data/adb/modules/alist-magisk/action.sh start   # 启动服务
+              su -c /data/adb/modules/alist-magisk/action.sh stop    # 停止服务
+              su -c /data/adb/modules/alist-magisk/action.sh status  # 检查状态
+              su -c /data/adb/modules/alist-magisk/action.sh reset   # 重置密码
+              \`\`\`
           - **更新模块**：通过 Magisk 检查更新，或手动下载最新 ZIP 文件重新安装。
           - **卸载模块**：在 Magisk 中禁用或删除模块，重启设备（数据目录需手动清理）。
 
@@ -248,21 +351,27 @@ jobs:
             - 确保网络正常，尝试使用设备 IP 访问（http://<设备IP>:5244）。
             - 检查服务状态：
               \`\`\`bash
-              ps aux | grep alist
+              su -c /data/adb/modules/alist-magisk/action.sh status
               \`\`\`
             - 手动启动服务：
               \`\`\`bash
-              /system/bin/alist server --data /data/adb/modules/alist-magisk/data
+              su -c /data/adb/modules/alist-magisk/action.sh start
               \`\`\`
           - **Q: 密码丢失？**
             - 查看 \`/data/adb/modules/alist-magisk/密码.txt\`。
-            - 或删除 data 目录后重新安装模块以生成新密码。
+            - 或运行：
+              \`\`\`bash
+              su -c /data/adb/modules/alist-magisk/action.sh reset
+              \`\`\`
+          - **Q: 动作按钮未显示？**
+            - 确保 Magisk 版本 >= v28.0。
+            - 确认 action.sh 存在且具有执行权限（chmod 755）。
 
           ## 更多信息
           访问 [项目主页](https://github.com/Alien-Et/Alist-Magisk) 获取完整文档和更新日志。
           EOF
 
-          # 创建或更新根目录 README.md（仓库主页）
+          # 创建或覆盖根目录 README.md（仓库主页）
           cat > README.md << EOF
           # AList Magisk 模块
 
@@ -275,6 +384,7 @@ jobs:
           - **最新版本同步**：自动跟踪 AList 官方版本（当前：${{ env.ALIST_VERSION }}）。
           - **无缝集成**：将 AList 二进制安装到 /system/bin，自动启动服务。
           - **随机凭据**：首次安装生成管理员账号和密码，保存到模块目录。
+          - **动作按钮**：通过 Magisk 应用管理 AList 服务（启动、停止、状态检查、密码重置）。
           - **更新支持**：通过 update.json 提供模块更新检查。
           - **轻量高效**：占用空间小，适合 Android 设备。
 
@@ -286,6 +396,7 @@ jobs:
           3. **使用**：
              - 查看 \`/data/adb/modules/alist-magisk/密码.txt\` 获取账号和密码。
              - 访问 http://localhost:5244 或设备 IP 的 5244 端口，登录 AList Web 界面。
+             - 在 Magisk 应用中点击“动作”按钮检查服务状态。
 
           ## 详细文档
           - **安装和使用**：查看 [模块自述文件](Alist-Magisk/README.md) 获取详细安装流程和故障排除。
@@ -300,7 +411,7 @@ jobs:
           本项目基于 [MIT 许可证](LICENSE) 发布。
           EOF
 
-          # 精确添加需要提交的文件，排除临时文件
+          # 精确添加需要提交的文件
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add Alist-Magisk/ update.json README.md
@@ -309,7 +420,7 @@ jobs:
 
           # 打包模块
           cd Alist-Magisk
-          zip -r ../alist-magisk-${{ env.ALIST_VERSION }}.zip module.prop customize.sh service.sh system CHANGELOG.md README.md
+          zip -r ../alist-magisk-${{ env.ALIST_VERSION }}.zip module.prop customize.sh service.sh action.sh system CHANGELOG.md README.md
           cd ..
 
       # 创建 GitHub Release
