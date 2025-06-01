@@ -19,7 +19,7 @@ AList Magisk 模块将 [AList](https://github.com/AlistGo/alist) 文件服务器
    - 在 Magisk 应用中选择“从本地安装”，加载 ZIP 文件。
    - 重启设备以应用模块并启动 AList 服务。
 3. **使用**：
-   - 查看  或 module.prop 的 description（“运行中”状态）获取账号和密码。
+   - 查看 `/data/adb/modules/alist-magisk/随机密码.txt` 或 module.prop 的 description（“运行中”状态）获取账号和密码。
    - 访问 http://localhost:5244 或设备 IP 的 5244 端口，登录 AList Web 界面。
    - 在 Magisk 应用中点击“动作”按钮切换服务状态，模块描述会动态更新。
 
