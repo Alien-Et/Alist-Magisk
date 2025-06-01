@@ -216,7 +216,7 @@ jobs:
           git config user.email "actions@github.com"
           git add Alist-Magisk/ update.json
           git commit -m "更新 AList Magisk 模块文件到 ${{ env.ALIST_VERSION }}"
-          git push
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/Alien-Et/Alist-Magisk.git
           
           cd Alist-Magisk
           zip -r ../alist-magisk-${{ env.ALIST_VERSION }}.zip module.prop customize.sh service.sh system CHANGELOG.md
