@@ -8,28 +8,33 @@ MODULE_PROP="$MODDIR/module.prop"
 PASSWORD_FILE="$MODDIR/随机密码.txt"
 REPO_URL="https://github.com/Alien-Et/Alist-Magisk"
 LOG_FILE="$MODDIR/service.log"
+MAX_WAIT=60
+WAIT_INTERVAL=5
+ELAPSED=0
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
 }
 
 get_lan_ip() {
-  LAN_IP=$(ip addr show wlan0 2>/dev/null | grep -w 'inet' | awk '{print $2}' | cut -d'/' -f1)
-  [ -z "$LAN_IP" ] && LAN_IP=$(ifconfig wlan0 2>/dev/null | grep -w 'inet' | awk '{print $2}' | cut -d':' -f2)
+  LAN_IP=$(ip addr show wlan0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)
+  [ -z "$LAN_IP" ] && LAN_IP=$(ifconfig wlan0 2>/dev/null | grep 'inet ' | awk '{print $2}')
   [ -z "$LAN_IP" ] && LAN_IP="192.168.x.x"
   echo "$LAN_IP"
 }
 
 generate_random_password() {
   log "Attempting to generate random password"
-  OUTPUT=$($ALIST_BINARY admin random --data "$DATA_DIR" 2>&1 | \
-           grep -E "username|password" | \
-           awk '/username/ {print "账号：" $NF} /password/ {print "密码：" $NF}' | tr -d '\r')
-  if [ -n "$OUTPUT" ]; then
-    echo "$OUTPUT" > "$PASSWORD_FILE"
+  OUTPUT=$($ALIST_BINARY admin random --data "$DATA_DIR" 2>&1)
+  log "Raw output from alist admin random: $OUTPUT"
+  USERNAME=$(echo "$OUTPUT" | grep -E "username" | grep -o '"username":"[^"]*"' | cut -d'"' -f4 || echo "$OUTPUT" | grep -E "username" | awk '{print $NF}' | tr -d '\r')
+  PASSWORD=$(echo "$OUTPUT" | grep -E "password" | grep -o '"password":"[^"]*"' | cut -d'"' -f4 || echo "$OUTPUT" | grep -E "password" | awk '{print $NF}' | tr -d '\r')
+  if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+    echo -e "账号：$USERNAME\n密码：$PASSWORD" > "$PASSWORD_FILE"
     chmod 600 "$PASSWORD_FILE"
-    log "Password file created at $PASSWORD_FILE with content: $OUTPUT"
-    echo "$OUTPUT"
+    log "Password file created at $PASSWORD_FILE with content: 账号：$USERNAME 密码：$PASSWORD"
+    echo "账号：$USERNAME"
+    echo "密码：$PASSWORD"
   else
     log "Error: Failed to generate or capture username and password"
     return 1
@@ -42,13 +47,14 @@ update_module_prop_running() {
   if [ -f "$PASSWORD_FILE" ]; then
     log "Reading $PASSWORD_FILE"
     cat "$PASSWORD_FILE" >> "$LOG_FILE"
-    USERNAME=$(grep -E "^账号：" "$PASSWORD_FILE" | sed -E 's/^账号：(.*)/\1/' | tr -d '\r')
-    PASSWORD=$(grep -E "^密码：" "$PASSWORD_FILE" | sed -E 's/^密码：(.*)/\1/' | tr -d '\r')
-    log "Raw grep output for username: $(grep -E "^账号：" "$PASSWORD_FILE")"
-    log "Raw grep output for password: $(grep -E "^密码：" "$PASSWORD_FILE")"
+    USERNAME=$(sed -n 's/^账号：\s*\(.*\)/\1/p' "$PASSWORD_FILE" | tr -d '\r')
+    PASSWORD=$(sed -n 's/^密码：\s*\(.*\)/\1/p' "$PASSWORD_FILE" | tr -d '\r')
     log "Parsed USERNAME=$USERNAME, PASSWORD=$PASSWORD"
     if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
-      sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL} | 初始账号：${USERNAME} | 初始密码：${PASSWORD}（仅未手动修改时有效）|" "$MODULE_PROP"
+      USERNAME_ESCAPED=$(echo "$USERNAME" | sed 's/[|&]/\\&/g')
+      PASSWORD_ESCAPED=$(echo "$PASSWORD" | sed 's/[|&]/\\&/g')
+      log "Escaped USERNAME=$USERNAME_ESCAPED, PASSWORD=$PASSWORD_ESCAPED"
+      sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL} | 初始账号：${USERNAME_ESCAPED} | 初始密码：${PASSWORD_ESCAPED}（仅未手动修改时有效）|" "$MODULE_PROP"
       log "Updated module.prop with username and password"
     else
       sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL}|" "$MODULE_PROP"
@@ -59,10 +65,6 @@ update_module_prop_running() {
     log "No password file found, updated module.prop without credentials"
   fi
 }
-
-MAX_WAIT=60
-WAIT_INTERVAL=2
-ELAPSED=0
 
 log "Starting service.sh"
 while [ $ELAPSED -lt $MAX_WAIT ]; do
