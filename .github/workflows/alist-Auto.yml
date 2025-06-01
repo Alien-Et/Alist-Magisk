@@ -99,11 +99,11 @@ jobs:
             echo "SHOULD_BUILD=false" >> $GITHUB_ENV
           fi
 
-      # 构建 Magisk 模块并覆盖仓库文件
-      - name: 构建 Magisk 模块并覆盖仓库文件
+      # 构建 Magisk 模块并强制覆盖仓库文件
+      - name: 构建 Magisk 模块并强制覆盖仓库文件
         if: env.SHOULD_BUILD == 'true'
         run: |
-          # 创建或覆盖模块目录
+          # 强制删除并重新创建 Alist-Magisk 目录
           rm -rf Alist-Magisk
           mkdir -p Alist-Magisk/system/bin
 
@@ -276,7 +276,7 @@ jobs:
 
           chmod 755 Alist-Magisk/action.sh
 
-          # 创建 update.json
+          # 创建 update.json（强制覆盖）
           cat > update.json << EOF
           {
               "version": "${{ env.ALIST_VERSION }}",
@@ -371,7 +371,7 @@ jobs:
           访问 [项目主页](https://github.com/Alien-Et/Alist-Magisk) 获取完整文档和更新日志。
           EOF
 
-          # 创建或覆盖根目录 README.md（仓库主页）
+          # 创建根目录 README.md（强制覆盖）
           cat > README.md << EOF
           # AList Magisk 模块
 
