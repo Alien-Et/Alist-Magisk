@@ -3,5 +3,5 @@ name=AList Magisk Module
 version=v3.45.0
 versionCode=345000
 author=Alien-Et
-description=A Magisk module to integrate AList file server into Android system
+description=【已停止】请点击"操作"启动程序。项目地址：https://github.com/Alien-Et/Alist-Magisk
 updateJson=https://raw.githubusercontent.com/Alien-Et/Alist-Magisk/main/update.json

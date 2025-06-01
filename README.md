@@ -7,9 +7,9 @@ AList Magisk 模块将 [AList](https://github.com/AlistGo/alist) 文件服务器
 
 ## 功能亮点
 - **最新版本同步**：自动跟踪 AList 官方版本（当前：v3.45.0）。
-- **无缝集成**：将 AList 二进制安装到 /system/bin，自动启动服务。
+- **无缝集成**：将 AList 二进制安装到 /system/bin，系统启动后自动运行。
 - **随机凭据**：首次安装生成管理员账号和密码，保存到模块目录。
-- **动作按钮**：通过 Magisk 应用管理 AList 服务（启动、停止、状态检查、密码重置）。
+- **动态服务管理**：通过 Magisk 的“动作”按钮切换 AList 服务状态（启动/停止），模块描述动态显示服务状态和局域网地址（运行时）。
 - **更新支持**：通过 update.json 提供模块更新检查。
 - **轻量高效**：占用空间小，适合 Android 设备。
 
@@ -21,7 +21,7 @@ AList Magisk 模块将 [AList](https://github.com/AlistGo/alist) 文件服务器
 3. **使用**：
    - 查看 `/data/adb/modules/alist-magisk/密码.txt` 获取账号和密码。
    - 访问 http://localhost:5244 或设备 IP 的 5244 端口，登录 AList Web 界面。
-   - 在 Magisk 应用中点击“动作”按钮检查服务状态。
+   - 在 Magisk 应用中点击“动作”按钮切换服务状态，模块描述会动态更新。
 
 ## 详细文档
 - **安装和使用**：查看 [模块自述文件](Alist-Magisk/README.md) 获取详细安装流程和故障排除。
