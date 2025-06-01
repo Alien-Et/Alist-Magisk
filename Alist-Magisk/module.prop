@@ -1,7 +1,0 @@
-id=alist-magisk
-name=AList Magisk Module
-version=v3.45.0
-versionCode=345000
-author=Alien-Et
-description=A Magisk module to integrate AList file server into Android system
-updateJson=https://raw.githubusercontent.com/Alien-Et/Alist-Magisk/main/update.json
