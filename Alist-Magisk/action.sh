@@ -9,7 +9,7 @@ SERVICE_SH="$MODDIR/service.sh"
 REPO_URL="https://github.com/Alien-Et/Alist-Magisk"
 
 check_alist_status() {
-  if pgrep -f "$ALIST_BINARY server --data $DATA_DIR" >/dev/null; then
+  if pgrep -f alist >/dev/null; then
     return 0
   else
     return 1
@@ -21,7 +21,7 @@ update_module_prop_stopped() {
 }
 
 if check_alist_status; then
-  pkill -f "$ALIST_BINARY server --data $DATA_DIR"
+  pkill -f alist
   sleep 1
   if check_alist_status; then
     echo "无法停止 AList 服务"

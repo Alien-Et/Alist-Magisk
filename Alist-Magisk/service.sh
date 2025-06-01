@@ -5,6 +5,7 @@ MODDIR=${0%/*}
 DATA_DIR="$MODDIR/data"
 ALIST_BINARY="/system/bin/alist"
 MODULE_PROP="$MODDIR/module.prop"
+PASSWORD_FILE="$MODDIR/密码.txt"
 REPO_URL="https://github.com/Alien-Et/Alist-Magisk"
 
 get_lan_ip() {
@@ -17,6 +18,25 @@ get_lan_ip() {
 update_module_prop_running() {
   LAN_IP=$(get_lan_ip)
   sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL}|" "$MODULE_PROP"
+}
+
+generate_random_password() {
+  if [ ! -d "$DATA_DIR" ] || [ -z "$(ls -A $DATA_DIR)" ]; then
+    mkdir -p "$DATA_DIR"
+    OUTPUT=$($ALIST_BINARY admin random --data "$DATA_DIR" 2>&1)
+    USERNAME=$(echo "$OUTPUT" | grep -E 'username' | awk '{print $NF}' | head -n 1)
+    PASSWORD=$(echo "$OUTPUT" | grep -E 'password' | awk '{print $NF}' | head -n 1)
+    if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+      echo "账号: $USERNAME" > "$PASSWORD_FILE"
+      echo "密码: $PASSWORD" >> "$PASSWORD_FILE"
+      chmod 644 "$PASSWORD_FILE"
+      echo "密码已保存到 $PASSWORD_FILE"
+    else
+      echo "警告: 无法生成或捕获账号和密码"
+    fi
+  else
+    echo "检测到已有 data 目录，跳过密码设置"
+  fi
 }
 
 MAX_WAIT=60
@@ -39,8 +59,9 @@ fi
 
 $ALIST_BINARY server --data "$DATA_DIR" &
 sleep 1
-if pgrep -f "$ALIST_BINARY server --data $DATA_DIR" >/dev/null; then
+if pgrep -f alist >/dev/null; then
   echo "AList 服务启动成功"
+  generate_random_password
   update_module_prop_running
 else
   echo "无法启动 AList 服务"
