@@ -7,10 +7,11 @@
 - 支持 ARM 和 ARM64 架构
 - 首次安装生成随机管理员账号和密码，保存到 `/data/adb/modules/alist-magisk/密码.txt`
 - 自动启动 AList 服务，数据存储在模块的 `data` 目录
+- 支持动作按钮，管理 AList 服务
 
 ## 安装流程
 1. **准备工作**：
-   - 确保设备已安装 Magisk（建议最新版本）。
+   - 确保设备已安装 Magisk（建议 v28.0 或更高版本以支持动作按钮）。
    - 设备已获得 Root 权限。
    - 确保有网络连接以下载模块。
 
@@ -35,7 +36,16 @@
    - 访问 AList Web 界面（默认：http://localhost:5244，使用 `密码.txt` 中的账号和密码登录）。
 
 ## 使用说明
-- **服务管理**：模块安装后，AList 服务自动启动，数据存储在 `/data/adb/modules/alist-magisk/data`。
+- **服务管理**：
+  - AList 服务在系统启动时自动运行（通过 service.sh）。
+  - 使用 Magisk 应用的“动作”按钮检查服务状态。
+  - 手动管理服务：
+    ```bash
+    su -c /data/adb/modules/alist-magisk/action.sh start   # 启动服务
+    su -c /data/adb/modules/alist-magisk/action.sh stop    # 停止服务
+    su -c /data/adb/modules/alist-magisk/action.sh status  # 检查状态
+    su -c /data/adb/modules/alist-magisk/action.sh reset   # 重置密码
+    ```
 - **更新模块**：通过 Magisk 检查更新，或手动下载最新 ZIP 文件重新安装。
 - **卸载模块**：在 Magisk 中禁用或删除模块，重启设备（数据目录需手动清理）。
 
@@ -44,15 +54,21 @@
   - 确保网络正常，尝试使用设备 IP 访问（http://<设备IP>:5244）。
   - 检查服务状态：
     ```bash
-    ps aux | grep alist
+    su -c /data/adb/modules/alist-magisk/action.sh status
     ```
   - 手动启动服务：
     ```bash
-    /system/bin/alist server --data /data/adb/modules/alist-magisk/data
+    su -c /data/adb/modules/alist-magisk/action.sh start
     ```
 - **Q: 密码丢失？**
   - 查看 `/data/adb/modules/alist-magisk/密码.txt`。
-  - 或删除 data 目录后重新安装模块以生成新密码。
+  - 或运行：
+    ```bash
+    su -c /data/adb/modules/alist-magisk/action.sh reset
+    ```
+- **Q: 动作按钮未显示？**
+  - 确保 Magisk 版本 >= v28.0。
+  - 确认 action.sh 存在且具有执行权限（chmod 755）。
 
 ## 更多信息
 访问 [项目主页](https://github.com/Alien-Et/Alist-Magisk) 获取完整文档和更新日志。
