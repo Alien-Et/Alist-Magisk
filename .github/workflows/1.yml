@@ -247,24 +247,6 @@ jobs:
           asset_name: alist-magisk-${{ env.ALIST_VERSION }}.zip
           asset_content_type: application/zip
 
-      # 发送 Discord 通知
-      - name: 通知 Discord
-        if: env.SHOULD_BUILD == 'true'
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: "新 AList Magisk 模块发布: ${{ env.ALIST_VERSION }}"
-
-      # 发送失败通知
-      - name: 通知 Discord 失败
-        if: failure()
-        uses: Ilshidur/action-discord@master
-        env:
-          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
-        with:
-          args: "AList Magisk 模块构建失败: ${{ env.ALIST_VERSION }}"
-
       # 清理工作目录
       - name: 清理工作目录
         if: always()
