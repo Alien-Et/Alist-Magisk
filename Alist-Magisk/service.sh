@@ -5,7 +5,7 @@ MODDIR=${0%/*}
 DATA_DIR="$MODDIR/data"
 ALIST_BINARY="/system/bin/alist"
 MODULE_PROP="$MODDIR/module.prop"
-PASSWORD_FILE="$MODDIR/密码.txt"
+PASSWORD_FILE="$MODDIR/随机密码.txt"
 REPO_URL="https://github.com/Alien-Et/Alist-Magisk"
 
 get_lan_ip() {
@@ -15,27 +15,33 @@ get_lan_ip() {
   echo "$LAN_IP"
 }
 
-update_module_prop_running() {
-  LAN_IP=$(get_lan_ip)
-  sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL}|" "$MODULE_PROP"
+generate_random_password() {
+  OUTPUT=$($ALIST_BINARY admin random --data "$DATA_DIR" 2>&1 | \
+           grep -E "username|password" | \
+           awk '/username/ {print "账号：" $NF} /password/ {print "密码：" $NF}')
+  if [ -n "$OUTPUT" ]; then
+    echo "$OUTPUT" > "$PASSWORD_FILE"
+    chmod 644 "$PASSWORD_FILE"
+    echo "密码已保存到 $PASSWORD_FILE"
+    echo "$OUTPUT"
+  else
+    echo "警告: 无法生成或捕获账号和密码"
+    return 1
+  fi
 }
 
-generate_random_password() {
-  if [ ! -d "$DATA_DIR" ] || [ -z "$(ls -A $DATA_DIR)" ]; then
-    mkdir -p "$DATA_DIR"
-    OUTPUT=$($ALIST_BINARY admin random --data "$DATA_DIR" 2>&1 | \
-             grep -E "username|password" | \
-             awk '/username/ {print "账号：" $NF} /password/ {print "密码：" $NF}')
-    if [ -n "$OUTPUT" ]; then
-      echo "$OUTPUT" > "$PASSWORD_FILE"
-      chmod 644 "$PASSWORD_FILE"
-      echo "密码已保存到 $PASSWORD_FILE"
-      echo "$OUTPUT"
+update_module_prop_running() {
+  LAN_IP=$(get_lan_ip)
+  if [ -f "$PASSWORD_FILE" ]; then
+    USERNAME=$(grep "账号：" "$PASSWORD_FILE" | awk '{print $2}')
+    PASSWORD=$(grep "密码：" "$PASSWORD_FILE" | awk '{print $2}')
+    if [ -n "$USERNAME" ] && [ -n "$PASSWORD" ]; then
+      sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL}\n初始账号：${USERNAME}\n初始密码：${PASSWORD}\n（初始密码仅在你未手动修改时有效）|" "$MODULE_PROP"
     else
-      echo "警告: 无法生成或捕获账号和密码"
+      sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL}|" "$MODULE_PROP"
     fi
   else
-    echo "检测到已有 data 目录，跳过密码设置"
+    sed -i "s|^description=.*|description=【运行中】局域网地址：http://${LAN_IP}:5244 项目地址：${REPO_URL}|" "$MODULE_PROP"
   fi
 }
 
@@ -57,11 +63,17 @@ if [ $ELAPSED -ge $MAX_WAIT ]; then
   echo "警告：系统启动超时，尝试启动 AList 服务"
 fi
 
+mkdir -p "$DATA_DIR"
+
 $ALIST_BINARY server --data "$DATA_DIR" &
 sleep 1
 if pgrep -f alist >/dev/null; then
   echo "AList 服务启动成功"
-  generate_random_password
+  if [ ! -f "$PASSWORD_FILE" ]; then
+    generate_random_password || echo "密码生成失败，继续运行"
+  else
+    echo "检测到 $PASSWORD_FILE，跳过密码生成"
+  fi
   update_module_prop_running
 else
   echo "无法启动 AList 服务"
