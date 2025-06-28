@@ -1,115 +1,126 @@
-# AList Magisk 模块安装指南
+AList Magisk 模块
 
-本模块将 [AList](https://github.com/AlistGo/alist) 文件服务器集成到 Android 系统中，当前版本：v3.45.1。
+AList Magisk 模块将 AList 文件服务器集成到 Android 系统中，通过 Magisk 以系统化方式运行，支持 ARM 和 ARM64 架构。
+功能亮点
 
-## 功能
-- 自动同步 AList 官方版本
-- 支持 ARM 和 ARM64 架构
-- 首次启动生成随机管理员账号和密码，保存到 `/data/adb/modules/alist-magisk/随机密码.txt`（格式为“账号：xxx”和“密码：xxx”）
-- 系统启动后自动运行 AList 服务，数据存储在模块的 `data` 目录（/data/adb/modules/alist-magisk/data）
-- 通过 Magisk 的“动作”按钮切换 AList 服务状态
-- 仅在“运行中”状态下，module.prop 的 description 显示账号和密码
+灵活安装选项：支持三种安装位置
+data/adb/alist
+模块目录/bin
+system/bin
 
-## 安装流程
-1. **准备工作**：
-   - 确保设备已安装 Magisk（建议 v28.0 或更高版本以支持动作按钮）。
-   - 设备已获得 Root 权限。
-   - 确保有网络连接以下载模块。
 
-2. **下载模块**：
-   - 从 [GitHub Releases](https://github.com/Alien-Et/Alist-Magisk/releases) 下载最新模块 ZIP 文件（例如：alist-magisk-v3.45.1.zip）。
+数据目录可选：支持两种数据存储位置
+/data/adb/alist/
+/storage/emulated/0/Android/alist/
 
-3. **安装模块**：
-   - 打开 Magisk 应用，进入“模块”选项卡。
-   - 点击“从本地安装”，选择下载的 ZIP 文件。
-   - 安装过程会显示：
-     - 设备架构（ARM 或 ARM64）。
-     - AList 二进制安装路径（/system/bin/alist）。
-   - 安装完成后，重启设备以启动 AList 服务并生成初始密码。
 
-4. **验证安装**：
-   - 检查 `/data/adb/modules/alist-magisk/随机密码.txt` 是否存在，格式为：
-     ```
-     账号：xxx
-     密码：xxx
-     ```
-   - 查看 `/data/adb/modules/alist-magisk/module.prop`，在“运行中”状态下确认 description 包含：
-     ```
-     【运行中】局域网地址：http://<IP>:5244 项目地址：https://github.com/Alien-Et/Alist-Magisk | 初始账号：xxx | 初始密码：xxx（仅未手动修改时有效）
-     ```
-   - 运行以下命令检查 AList 服务：
-     ```bash
-     alist version
-     ```
-   - 访问 AList Web 界面（默认：http://localhost:5244，使用 `随机密码.txt` 中的账号和密码登录）。
+密码定制：提供初始密码设置选项
+动态服务管理：通过 Magisk 的"动作"按钮一键控制服务
+智能网络适配：自动识别 WiFi 和移动网络 IP
+日志支持：详细的运行日志记录
 
-## 使用说明
-- **服务管理**：
-  - AList 服务在系统启动完成后自动运行（通过 service.sh），模块描述显示：
-    ```
-    【运行中】局域网地址：http://<设备IP>:5244 项目地址：https://github.com/Alien-Et/Alist-Magisk | 初始账号：xxx | 初始密码：xxx（仅未手动修改时有效）
-    ```
-  - 在 Magisk 应用中点击“动作”按钮：
-    - 如果 AList 服务正在运行，点击停止服务，模块描述更新为：
-      ```
-      【已停止】请点击"操作"启动程序。项目地址：https://github.com/Alien-Et/Alist-Magisk
-      ```
-    - 如果 AList 服务未运行，点击启动服务，模块描述恢复为“运行中”状态。
-- **数据目录**：AList 数据存储在 `/data/adb/modules/alist-magisk/data`，覆盖安装不会重置密码（除非手动删除 随机密码.txt）。
-- **密码生成**：
-  - 首次安装并重启后，自动生成随机密码，保存到 `随机密码.txt`。
-  - 后续重启若 `随机密码.txt` 存在，则不修改密码；若不存在，则生成新密码。
-  - 密码格式：
-    ```
-    账号：admin
-    密码：xxxxxxxx
-    ```
-  - 初始账号和密码仅在“运行中”状态下显示在 module.prop 的 description 中，带备注“仅未手动修改时有效”。
-- **更新模块**：通过 Magisk 检查更新，或手动下载最新 ZIP 文件重新安装。
-- **卸载模块**：在 Magisk 中禁用或删除模块，重启设备（data 目录和 随机密码.txt 需手动清理）。
+系统要求
 
-## 常见问题
-- **Q: 无法访问 Web 界面？**
-  - 确保网络正常，尝试使用设备 IP 访问（http://<设备IP>:5244）。
-  - 检查服务状态：
-    ```bash
-    pgrep -f alist
-    ```
-  - 手动启动服务：
-    ```bash
-    su -c /data/adb/modules/alist-magisk/action.sh
-    ```
-- **Q: 密码丢失？**
-  - 查看 `/data/adb/modules/alist-magisk/随机密码.txt` 或 module.prop 的 description（“运行中”状态）。
-  - 若 随机密码.txt 被删除，可重启设备重新生成密码。
-- **Q: 动作按钮无法停止服务？**
-  - 确保 Magisk 版本 >= v28.0。
-  - 手动检查：
-    ```bash
-    su -c pkill -f alist
-    su -c /data/adb/modules/alist-magisk/action.sh
-    ```
-- **Q: module.prop 未显示账号和密码？**
-  - 确认 AList 服务是否运行：
-    ```bash
-    pgrep -f alist
-    ```
-  - 检查 `随机密码.txt` 内容和格式：
-    ```bash
-    cat /data/adb/modules/alist-magisk/随机密码.txt
-    ```
-  - 查看日志：
-    ```bash
-    cat /data/adb/modules/alist-magisk/service.log
-    ```
-  - 手动运行 service.sh：
-    ```bash
-    su -c /data/adb/modules/alist-magisk/service.sh
-    ```
-  - 检查 module.prop：
-    ```bash
-    cat /data/adb/modules/alist-magisk/module.prop
-    ```
+Android 设备（支持 ARM 或 ARM64 架构）
+Magisk v20.4 或更高版本
+Root 权限
 
-## 更多信息
-访问 [项目主页](https://github.com/Alien-Et/Alist-Magisk) 获取完整文档和更新日志。
+安装步骤
+
+下载模块
+
+从 GitHub Releases 下载最新版本
+
+
+安装配置
+
+打开 Magisk 管理器
+选择"从本地安装"
+进入安装配置界面：
+选择二进制文件安装位置
+选择数据目录存储位置
+选择是否修改默认密码为 admin
+
+
+
+
+完成安装
+
+等待安装完成
+重启设备
+
+
+
+使用说明
+服务管理
+
+系统启动后自动运行
+通过 Magisk "动作"按钮控制服务
+服务状态显示在 module.prop：
+运行中：显示访问地址和数据目录
+已停止：显示启动提示
+
+
+
+访问方式
+
+Web 界面访问：http://<设备IP>:5244
+初始密码：查看数据目录下的 初始密码.txt
+
+数据存储
+
+默认数据目录：/data/adb/alist/
+日志文件位置：与数据目录相同
+密码文件：初始密码.txt
+
+故障排除
+常见问题
+
+无法访问服务
+
+检查网络连接
+检查服务状态：pgrep -f alist
+查看日志文件
+手动重启服务：su -c /data/adb/modules/alist/service.sh
+
+
+IP 地址获取失败
+
+确认 WiFi 或移动网络已连接
+检查网络接口状态
+查看模块日志
+
+
+服务无法启动
+
+检查二进制文件权限
+确认数据目录可写
+查看详细日志
+
+
+
+手动操作
+
+停止服务：su -c pkill -f alist
+启动服务：su -c /data/adb/modules/alist/service.sh
+查看日志：cat /data/adb/modules/alist/service.log
+
+更新说明
+
+支持通过 Magisk 更新检查
+更新不会清除现有数据
+可在安装时重新选择配置选项
+
+数据迁移说明
+
+在安装时选择新的数据目录
+手动将现有数据迁移到新目录
+更新 config.json 中的相关路径
+
+贡献
+
+欢迎提交 Issue 和 Pull Request
+问题反馈：GitHub Issues
+
+许可证
+本项目基于 MIT 许可证 发布。
