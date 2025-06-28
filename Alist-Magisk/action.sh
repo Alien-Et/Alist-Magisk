@@ -1,13 +1,13 @@
 #!/system/bin/sh
 # shellcheck shell=ash
-# action.sh for alist Magisk Module
+# action.sh for AList Magisk Module
 
 MODDIR="${0%/*}"
 MODULE_PROP="$MODDIR/module.prop"
 SERVICE_SH="$MODDIR/service.sh"
-REPO_URL="https://github.com/Alien-Et/Alist-Magisk"
+REPO_URL="https://github.com/Alien-Et/AList-Magisk"
 
-check_openlist_status() {
+check_alist_status() {
     if pgrep -f alist >/dev/null; then
         return 0
     else
@@ -23,10 +23,10 @@ if check_alist_status; then
     pkill -f alist
     sleep 1
     if check_alist_status; then
-        echo "无法停止 alist 服务"
+        echo "无法停止 AList 服务"
         exit 1
     else
-        echo "alist 服务已停止"
+        echo "AList 服务已停止"
         update_module_prop_stopped
     fi
 else
@@ -34,9 +34,9 @@ else
         sh "$SERVICE_SH"
         sleep 1
         if check_alist_status; then
-            echo "alist 服务启动成功"
+            echo "AList 服务启动成功"
         else
-            echo "无法启动 alist 服务"
+            echo "无法启动 AList 服务"
             exit 1
         fi
     else
