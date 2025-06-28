@@ -120,11 +120,11 @@ jobs:
           rm -f alist-arm64.tar.gz
 
           # 移动二进制文件到模块目录
-          mv alist-arm AList-Magisk/
-          mv alist-arm64 AList-Magisk/
+          mv alist-arm Alist-Magisk/
+          mv alist-arm64 Alist-Magisk/
 
           # 设置权限
-          chmod 755 AList-Magisk/alist-arm AList-Magisk/alist-arm64
+          chmod 755 Alist-Magisk/alist-arm Alist-Magisk/alist-arm64
 
       # 更新配置文件
       - name: 更新配置文件
@@ -141,9 +141,9 @@ jobs:
           EOF
 
           # 更新 module.prop
-          if [ -f AList-Magisk/module.prop ]; then
-            sed -i "s/^version=.*/version=${{ env.ALIST_VERSION }}/" AList-Magisk/module.prop
-            sed -i "s/^versionCode=.*/versionCode=${{ env.ALIST_VERSION_CODE }}/" AList-Magisk/module.prop
+          if [ -f Alist-Magisk/module.prop ]; then
+            sed -i "s/^version=.*/version=${{ env.ALIST_VERSION }}/" Alist-Magisk/module.prop
+            sed -i "s/^versionCode=.*/versionCode=${{ env.ALIST_VERSION_CODE }}/" Alist-Magisk/module.prop
           else
             echo "::error::module.prop 文件不存在"
             exit 1
@@ -152,7 +152,7 @@ jobs:
           # 提交更改
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add update.json AList-Magisk/module.prop
+          git add update.json Alist-Magisk/module.prop
           git commit -m "更新模块到 AList ${{ env.ALIST_VERSION }}" || echo "无更改需要提交"
           git push origin main
 
@@ -171,8 +171,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "${{ env.ALIST_VERSION }}" \
-            --title "AList Magisk Module ${{ env.ALIST_VERSION }}" \
-            --notes "Synced with AList official release v${{ env.ALIST_VERSION }}\n${{ env.ALIST_CHANGELOG }}" \
+            --title "Alist Magisk Module ${{ env.ALIST_VERSION }}" \
+            --notes "Synced with Alist official release v${{ env.ALIST_VERSION }}\n${{ env.ALIST_CHANGELOG }}" \
             --draft=false \
             --prerelease=false \
             "alist-magisk-${{ env.ALIST_VERSION }}.zip"
