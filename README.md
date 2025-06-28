@@ -5,12 +5,15 @@ AList Magisk 模块将 AList 文件服务器集成到 Android 系统中，通过
 
 灵活安装选项：支持三种安装位置
 data/adb/alist
+
 模块目录/bin
+
 system/bin
 
 
 数据目录可选：支持两种数据存储位置
 /data/adb/alist/
+
 /storage/emulated/0/Android/alist/
 
 
