@@ -1,6 +1,6 @@
 # AList Magisk 模块安装指南
 
-本模块将 [AList](https://github.com/AlistGo/alist) 文件服务器集成到 Android 系统中，当前版本：v3.45.0。
+本模块将 [AList](https://github.com/AlistGo/alist) 文件服务器集成到 Android 系统中，当前版本：v3.45.1。
 
 ## 功能
 - 自动同步 AList 官方版本
@@ -17,7 +17,7 @@
    - 确保有网络连接以下载模块。
 
 2. **下载模块**：
-   - 从 [GitHub Releases](https://github.com/Alien-Et/Alist-Magisk/releases) 下载最新模块 ZIP 文件（例如：alist-magisk-v3.45.0.zip）。
+   - 从 [GitHub Releases](https://github.com/Alien-Et/Alist-Magisk/releases) 下载最新模块 ZIP 文件（例如：alist-magisk-v3.45.1.zip）。
 
 3. **安装模块**：
    - 打开 Magisk 应用，进入“模块”选项卡。

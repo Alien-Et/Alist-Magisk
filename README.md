@@ -6,7 +6,7 @@
 AList Magisk 模块将 [AList](https://github.com/AlistGo/alist) 文件服务器集成到 Android 系统中，通过 Magisk 以系统化方式运行，支持 ARM 和 ARM64 架构。
 
 ## 功能亮点
-- **自动同步最新版本**：与 AList 官方版本保持一致（当前版本：v3.45.0）。
+- **自动同步最新版本**：与 AList 官方版本保持一致（当前版本：v3.45.1）。
 - **系统级集成**：将 AList 二进制文件安装到 /system/bin，系统启动后自动运行服务。
 - **随机凭据生成**：首次启动服务时生成管理员账号和密码，保存至 /data/adb/modules/alist-magisk/随机密码.txt（格式为“账号：xxx”和“密码：xxx”），后续重启若文件存在则不重置密码。
 - **动态服务管理**：通过 Magisk 的“动作”按钮启动或停止 AList 服务，module.prop 的 description 字段动态更新运行状态和访问地址。
@@ -15,7 +15,7 @@ AList Magisk 模块将 [AList](https://github.com/AlistGo/alist) 文件服务器
 
 ## 快速开始
 1. **下载模块**：
-   - 从 [GitHub Releases](https://github.com/Alien-Et/Alist-Magisk/releases) 下载最新模块 ZIP 文件（例如：alist-magisk-v3.45.0.zip）。
+   - 从 [GitHub Releases](https://github.com/Alien-Et/Alist-Magisk/releases) 下载最新模块 ZIP 文件（例如：alist-magisk-v3.45.1.zip）。
 2. **安装模块**：
    - 打开 Magisk 应用，进入“模块”选项卡。
    - 点击“从本地安装”，选择下载的 ZIP 文件。
