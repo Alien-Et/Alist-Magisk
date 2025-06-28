@@ -32,7 +32,7 @@ jobs:
         id: get_version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          API_URL: https://api.github.com/repos/AListTeam/AList/releases/latest
+          API_URL: https://api.github.com/repos/AList-org/AList/releases/latest
         run: |
           for i in {1..3}; do
             RESPONSE=$(curl -s -L -w "\n%{http_code}" -H "Authorization: Bearer $GITHUB_TOKEN" "$API_URL")
