@@ -136,7 +136,7 @@ jobs:
               "version": "${{ env.ALIST_VERSION }}",
               "versionCode": ${{ env.ALIST_VERSION_CODE }},
               "zipUrl": "${{ github.server_url }}/${{ github.repository }}/releases/download/${{ env.ALIST_VERSION }}/alist-magisk-${{ env.ALIST_VERSION }}.zip",
-              "changelog": "${{ github.server_url }}/${{ github.repository }}/raw/main/AList-Magisk/CHANGELOG.md"
+              "changelog": "${{ github.server_url }}/${{ github.repository }}/raw/main/Alist-Magisk/CHANGELOG.md"
           }
           EOF
 
@@ -153,7 +153,7 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
           git add update.json Alist-Magisk/module.prop
-          git commit -m "更新模块到 AList ${{ env.ALIST_VERSION }}" || echo "无更改需要提交"
+          git commit -m "更新模块到 Alist ${{ env.ALIST_VERSION }}" || echo "无更改需要提交"
           git push origin main
 
       # 打包模块
