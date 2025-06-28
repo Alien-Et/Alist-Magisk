@@ -27,7 +27,7 @@ jobs:
           mkdir -p AList-Magisk
           if [ ! -f AList-Magisk/module.prop ]; then
             echo "初始化 module.prop 文件"
-            cat > AList-Magisk/module.prop << EOF
+            cat > AList-Magisk/module.prop << 'EOF'
 id=alist-magisk
 name=AList Magisk Module
 version=0.0.0
@@ -133,7 +133,8 @@ EOF
           # 下载并解压 ARM 版本
           echo "下载 ARM 版本：${{ env.ALIST_ARM_URL }}"
           curl -L -o alist-arm.tar.gz "${{ env.ALIST_ARM_URL }}"
-          tar -xzf alist-arm.tar.gz
+          tar -xzf alist-armස
+
           if [ ! -f alist ]; then
             echo "::error::解压 alist-arm.tar.gz 后未找到 alist 文件"
             exit 1
@@ -172,7 +173,7 @@ EOF
         if: env.SHOULD_BUILD == 'true'
         run: |
           # 更新 update.json
-          cat > update.json << EOF
+          cat > update.json << 'EOF'
 {
     "version": "${{ env.ALIST_VERSION }}",
     "versionCode": ${{ env.ALIST_VERSION_CODE }},
@@ -193,7 +194,7 @@ EOF
           # 提交更改
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add update.json AList-Magisk/module.prop
+          git add update.json AList-Mgisk/module.prop
           git commit -m "更新模块到 AList ${{ env.ALIST_VERSION }}" || echo "无更改需要提交"
           git push origin main
 
