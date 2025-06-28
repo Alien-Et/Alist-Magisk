@@ -160,7 +160,7 @@ jobs:
       - name: 打包模块
         if: env.SHOULD_BUILD == 'true'
         run: |
-          cd AList-Magisk
+          cd Alist-Magisk
           zip -r ../alist-magisk-${{ env.ALIST_VERSION }}.zip .
           cd ..
 
