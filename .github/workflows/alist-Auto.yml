@@ -21,22 +21,6 @@ jobs:
       - name: 检出仓库代码
         uses: actions/checkout@v4
 
-      # 初始化 AList-Magisk 目录结构
-      - name: 初始化 AList-Magisk 目录结构
-        run: |
-          mkdir -p AList-Magisk
-          if [ ! -f AList-Magisk/module.prop ]; then
-            echo "初始化 module.prop 文件"
-            cat > AList-Magisk/module.prop << 'EOF'
-id=alist-magisk
-name=AList Magisk Module
-version=0.0.0
-versionCode=0
-author=YourName
-description=A Magisk module for AList
-EOF
-          fi
-
       # 安装依赖工具
       - name: 安装依赖
         run: |
@@ -48,7 +32,7 @@ EOF
         id: get_version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          API_URL: https://api.github.com/repos/AlistGo/alist/releases/latest
+          API_URL: https://api.github.com/repos/alist-org/alist/releases/latest
         run: |
           for i in {1..3}; do
             RESPONSE=$(curl -s -L -w "\n%{http_code}" -H "Authorization: Bearer $GITHUB_TOKEN" "$API_URL")
@@ -123,47 +107,21 @@ EOF
       - name: 同步 AList 二进制文件
         if: env.SHOULD_BUILD == 'true'
         run: |
-          # 确保 AList-Magisk 目录存在
-          mkdir -p AList-Magisk
-          
-          # 调试：列出当前目录内容
-          echo "当前目录内容："
-          ls -la
-
           # 下载并解压 ARM 版本
-          echo "下载 ARM 版本：${{ env.ALIST_ARM_URL }}"
           curl -L -o alist-arm.tar.gz "${{ env.ALIST_ARM_URL }}"
-          tar -xzf alist-armස
-
-          if [ ! -f alist ]; then
-            echo "::error::解压 alist-arm.tar.gz 后未找到 alist 文件"
-            exit 1
-          fi
+          tar -xzf alist-arm.tar.gz
           mv alist alist-arm
           rm -f alist-arm.tar.gz
 
           # 下载并解压 ARM64 版本
-          echo "下载 ARM64 版本：${{ env.ALIST_ARM64_URL }}"
           curl -L -o alist-arm64.tar.gz "${{ env.ALIST_ARM64_URL }}"
           tar -xzf alist-arm64.tar.gz
-          if [ ! -f alist ]; then
-            echo "::error::解压 alist-arm64.tar.gz 后未找到 alist 文件"
-            exit 1
-          fi
           mv alist alist-arm64
           rm -f alist-arm64.tar.gz
-
-          # 调试：列出解压后的文件
-          echo "解压后的文件："
-          ls -la
 
           # 移动二进制文件到模块目录
           mv alist-arm AList-Magisk/
           mv alist-arm64 AList-Magisk/
-
-          # 调试：列出 AList-Magisk 目录内容
-          echo "AList-Magisk 目录内容："
-          ls -la AList-Magisk/
 
           # 设置权限
           chmod 755 AList-Magisk/alist-arm AList-Magisk/alist-arm64
@@ -173,14 +131,14 @@ EOF
         if: env.SHOULD_BUILD == 'true'
         run: |
           # 更新 update.json
-          cat > update.json << 'EOF'
-{
-    "version": "${{ env.ALIST_VERSION }}",
-    "versionCode": ${{ env.ALIST_VERSION_CODE }},
-    "zipUrl": "${{ github.server_url }}/${{ github.repository }}/releases/download/${{ env.ALIST_VERSION }}/alist-magisk-${{ env.ALIST_VERSION }}.zip",
-    "changelog": "${{ github.server_url }}/${{ github.repository }}/raw/main/AList-Magisk/CHANGELOG.md"
-}
-EOF
+          cat > update.json << EOF
+          {
+              "version": "${{ env.ALIST_VERSION }}",
+              "versionCode": ${{ env.ALIST_VERSION_CODE }},
+              "zipUrl": "${{ github.server_url }}/${{ github.repository }}/releases/download/${{ env.ALIST_VERSION }}/alist-magisk-${{ env.ALIST_VERSION }}.zip",
+              "changelog": "${{ github.server_url }}/${{ github.repository }}/raw/main/AList-Magisk/CHANGELOG.md"
+          }
+          EOF
 
           # 更新 module.prop
           if [ -f AList-Magisk/module.prop ]; then
@@ -194,7 +152,7 @@ EOF
           # 提交更改
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add update.json AList-Mgisk/module.prop
+          git add update.json AList-Magisk/module.prop
           git commit -m "更新模块到 AList ${{ env.ALIST_VERSION }}" || echo "无更改需要提交"
           git push origin main
 
