@@ -1,69 +1,126 @@
-# AList Magisk 模块
+AList Magisk 模块
 
-[![Release](https://img.shields.io/github/v/release/Alien-Et/Alist-Magisk)](https://github.com/Alien-Et/Alist-Magisk/releases)
-[![License](https://img.shields.io/github/license/Alien-Et/Alist-Magisk)](https://github.com/Alien-Et/Alist-Magisk/blob/main/LICENSE)
+AList Magisk 模块将 AList 文件服务器集成到 Android 系统中，通过 Magisk 以系统化方式运行，支持 ARM 和 ARM64 架构。
+功能亮点
 
-AList Magisk 模块将 [AList](https://github.com/AlistGo/alist) 文件服务器集成到 Android 系统中，通过 Magisk 以系统化方式运行，支持 ARM 和 ARM64 架构。
+灵活安装选项：支持三种安装位置
+data/adb/alist
+模块目录/bin
+system/bin
 
-## 功能亮点
-- **自动同步最新版本**：与 AList 官方版本保持一致（当前版本：v3.45.1）。
-- **系统级集成**：将 AList 二进制文件安装到 /system/bin，系统启动后自动运行服务。
-- **随机凭据生成**：首次启动服务时生成管理员账号和密码，保存至 /data/adb/modules/alist-magisk/随机密码.txt（格式为“账号：xxx”和“密码：xxx”），后续重启若文件存在则不重置密码。
-- **动态服务管理**：通过 Magisk 的“动作”按钮启动或停止 AList 服务，module.prop 的 description 字段动态更新运行状态和访问地址。
-- **更新支持**：通过 update.json 提供模块更新检查。
-- **轻量高效**：占用空间小，适合 Android 设备。
 
-## 快速开始
-1. **下载模块**：
-   - 从 [GitHub Releases](https://github.com/Alien-Et/Alist-Magisk/releases) 下载最新模块 ZIP 文件（例如：alist-magisk-v3.45.1.zip）。
-2. **安装模块**：
-   - 打开 Magisk 应用，进入“模块”选项卡。
-   - 点击“从本地安装”，选择下载的 ZIP 文件。
-   - 安装过程会显示设备架构（ARM 或 ARM64）及 AList 二进制安装路径（/system/bin/alist）。
-   - 安装完成后，重启设备以应用模块并启动 AList 服务。
-3. **使用模块**：
-   - 查看 /data/adb/modules/alist-magisk/随机密码.txt 获取初始账号和密码。
-   - 访问 AList Web 界面（默认：http://localhost:5244 或 http://<设备IP>:5244），使用 随机密码.txt 中的凭据登录。
-   - 在 Magisk 应用中点击“动作”按钮切换服务状态，module.prop 的描述会更新为：
-     - 运行中：【运行中】局域网地址：http://<设备IP>:5244 | 初始账密请移步到"/data/adb/modules/alist-magisk/随机密码.txt"查看
-     - 已停止：【已停止】请点击"操作"启动程序。项目地址：https://github.com/Alien-Et/Alist-Magisk
+数据目录可选：支持两种数据存储位置
+/data/adb/alist/
+/storage/emulated/0/Android/alist/
 
-## 详细文档
-- **安装与使用指南**：查看 [模块自述文件](Alist-Magisk/README.md) 获取详细安装步骤和故障排除方法。
-- **更新日志**：查看 [CHANGELOG.md](Alist-Magisk/CHANGELOG.md) 了解版本更新内容。
-- **问题反馈**：在 [Issue](https://github.com/Alien-Et/Alist-Magisk/issues) 页面提交问题或建议。
 
-## 功能详情
-- **服务管理**：
-  - 系统启动后，AList 服务通过 service.sh 自动运行，数据存储在 /data/adb/modules/alist-magisk/data。
-  - 使用 Magisk 的“动作”按钮（需 Magisk v28.0 或更高版本）切换服务状态：
-    - 服务运行时，module.prop 显示运行状态和局域网访问地址，提示用户查看 随机密码.txt 获取凭据。
-    - 服务停止时，module.prop 显示停止状态和项目地址。
-- **密码管理**：
-  - 首次启动生成随机账号和密码，保存至 /data/adb/modules/alist-magisk/随机密码.txt（格式：账号：admin\n密码：xxxxxxxx）。
-  - 若 随机密码.txt 存在，后续重启不会重置密码；若文件被删除，则重新生成。
-- **数据持久性**：覆盖安装模块不会重置 data 目录或 随机密码.txt，需手动清理。
-- **日志支持**：服务日志保存在 /data/adb/modules/alist-magisk/service.log，便于调试。
+密码定制：提供初始密码设置选项
+动态服务管理：通过 Magisk 的"动作"按钮一键控制服务
+智能网络适配：自动识别 WiFi 和移动网络 IP
+日志支持：详细的运行日志记录
 
-## 常见问题
-- **Q: 无法访问 AList Web 界面？**
-  - 确保网络正常，尝试使用设备 IP 访问（http://<设备IP>:5244）。
-  - 检查服务状态：pgrep -f alist
-  - 手动启动服务：su -c /data/adb/modules/alist-magisk/action.sh
-- **Q: 密码丢失？**
-  - 查看 /data/adb/modules/alist-magisk/随机密码.txt。
-  - 若文件丢失，重启设备重新生成密码。
-- **Q: 动作按钮无效？**
-  - 确保 Magisk 版本 >= v28.0。
-  - 手动操作：su -c pkill -f alist 或 su -c /data/adb/modules/alist-magisk/action.sh
-- **Q: module.prop 未更新？**
-  - 确认服务运行：pgrep -f alist
-  - 检查日志：cat /data/adb/modules/alist-magisk/service.log
-  - 手动运行：su -c /data/adb/modules/alist-magisk/service.sh
+系统要求
 
-## 贡献
-- 欢迎提交 Pull Request 或 Issue。
-- 感谢 [AList](https://github.com/AlistGo/alist) 项目提供支持。
+Android 设备（支持 ARM 或 ARM64 架构）
+Magisk v20.4 或更高版本
+Root 权限
 
-## 许可证
-本项目基于 [MIT 许可证](LICENSE) 发布。
+安装步骤
+
+下载模块
+
+从 GitHub Releases 下载最新版本
+
+
+安装配置
+
+打开 Magisk 管理器
+选择"从本地安装"
+进入安装配置界面：
+选择二进制文件安装位置
+选择数据目录存储位置
+选择是否修改默认密码为 admin
+
+
+
+
+完成安装
+
+等待安装完成
+重启设备
+
+
+
+使用说明
+服务管理
+
+系统启动后自动运行
+通过 Magisk "动作"按钮控制服务
+服务状态显示在 module.prop：
+运行中：显示访问地址和数据目录
+已停止：显示启动提示
+
+
+
+访问方式
+
+Web 界面访问：http://<设备IP>:5244
+初始密码：查看数据目录下的 初始密码.txt
+
+数据存储
+
+默认数据目录：/data/adb/alist/
+日志文件位置：与数据目录相同
+密码文件：初始密码.txt
+
+故障排除
+常见问题
+
+无法访问服务
+
+检查网络连接
+检查服务状态：pgrep -f alist
+查看日志文件
+手动重启服务：su -c /data/adb/modules/alist/service.sh
+
+
+IP 地址获取失败
+
+确认 WiFi 或移动网络已连接
+检查网络接口状态
+查看模块日志
+
+
+服务无法启动
+
+检查二进制文件权限
+确认数据目录可写
+查看详细日志
+
+
+
+手动操作
+
+停止服务：su -c pkill -f alist
+启动服务：su -c /data/adb/modules/alist/service.sh
+查看日志：cat /data/adb/modules/alist/service.log
+
+更新说明
+
+支持通过 Magisk 更新检查
+更新不会清除现有数据
+可在安装时重新选择配置选项
+
+数据迁移说明
+
+在安装时选择新的数据目录
+手动将现有数据迁移到新目录
+更新 config.json 中的相关路径
+
+贡献
+
+欢迎提交 Issue 和 Pull Request
+问题反馈：GitHub Issues
+
+许可证
+本项目基于 MIT 许可证 发布。
