@@ -1,3 +1,2 @@
 # Changelog
-- v3.45.1: Synced with AList official release v3.45.1
-### &nbsp;&nbsp;&nbsp;🚀 Features\r\n\r\n- Add ghcr docker image &nbsp;-&nbsp; by @al-one in https://github.com/AlistGo/alist/issues/8524 [<samp>(b1586)</samp>](https://github.com/AlistGo/alist/commit/b1586612)\r\n\r\n### &nbsp;&nbsp;&nbsp;🐞 Bug Fixes\r\n\r\n- Update documentation links to point to the new domain And fix 189pc getToken fail &nbsp;-&nbsp; by **alistgo** [<samp>(7aeb0)</samp>](https://github.com/AlistGo/alist/commit/7aeb0ab0)\r\n- Dead link &nbsp;-&nbsp; by **alistgo** [<samp>(51eeb)</samp>](https://github.com/AlistGo/alist/commit/51eeb224)\r\n\r\n##### &nbsp;&nbsp;&nbsp;&nbsp;[View changes on GitHub](https://github.com/AlistGo/alist/compare/v3.45.0...v3.45.1)
+同步Alist官方二进制。模块暂无更新
