@@ -1,12 +1,16 @@
-name: 构建 AList Magisk 模块
+name: 构建 OpenList Magisk 模块
 
 on:
   schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    - cron: '0 */4 * * *'  # 每4小时运行一次
+  workflow_dispatch:  # 支持手动触发
   push:
     branches:
-      - main
+      - main  # 推送 main 分支时触发
+
+permissions:
+  contents: write  # 允许推送代码和创建 Release
+  actions: read    # 允许读取 Actions 状态
 
 jobs:
   build:
@@ -14,28 +18,28 @@ jobs:
 
     steps:
       # 检出仓库代码
-      - name: 检出仓库
+      - name: 检出仓库代码
         uses: actions/checkout@v4
 
       # 安装依赖工具
       - name: 安装依赖
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl zip
+          sudo apt-get install -y curl zip gh
 
-      # 获取 AList 最新版本
-      - name: 获取 AList 最新版本
+      # 获取 OpenList 最新版本
+      - name: 获取 OpenList 最新版本
         id: get_version
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          API_URL: https://api.github.com/repos/AlistGo/alist/releases/latest
+          API_URL: https://api.github.com/repos/alist-org/alist/releases/latest
         run: |
           for i in {1..3}; do
             RESPONSE=$(curl -s -L -w "\n%{http_code}" -H "Authorization: Bearer $GITHUB_TOKEN" "$API_URL")
             HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
             BODY=$(echo "$RESPONSE" | sed '$d')
             if [ "$HTTP_CODE" -eq 200 ] && [ -n "$BODY" ]; then
-              echo "成功获取 AList Release 数据"
+              echo "成功获取 OpenList Release 数据"
               echo "$BODY" > latest_release.json
               break
             fi
@@ -44,18 +48,22 @@ jobs:
           done
 
           if [ ! -f latest_release.json ] || [ ! -s latest_release.json ]; then
-            echo "::error::无法获取 AList 版本信息"
+            echo "::error::无法获取 OpenList 版本信息"
             exit 1
           fi
 
+          # 提取版本号
           VERSION=$(echo "$BODY" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
           if [ -z "$VERSION" ]; then
-            echo "::error::无法提取版本号，tag_name 可能不存在"
+            echo "::error::无法提取版本号"
             cat latest_release.json
             exit 1
           fi
 
+          # 生成版本代码（比如 v1.2.3 -> 120）
           VERSION_CODE=$(echo "$VERSION" | tr -d 'v' | tr -d '.' | awk '{printf "%d%02d", $1, $2}')
+
+          # 提取下载链接
           ARM_URL=$(echo "$BODY" | grep '"browser_download_url":' | grep 'alist-android-arm.tar.gz' | sed -E 's/.*"([^"]+)".*/\1/')
           ARM64_URL=$(echo "$BODY" | grep '"browser_download_url":' | grep 'alist-android-arm64.tar.gz' | sed -E 's/.*"([^"]+)".*/\1/')
           CHANGELOG=$(echo "$BODY" | grep '"body":' | sed -E 's/.*"body":\s*"([^"]+)"([,}]).*/\1/' | sed 's/\\"/"/g')
@@ -65,11 +73,12 @@ jobs:
             exit 1
           fi
 
-          echo "ALIST_VERSION=$VERSION" >> $GITHUB_ENV
-          echo "ALIST_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
-          echo "ALIST_ARM_URL=$ARM_URL" >> $GITHUB_ENV
-          echo "ALIST_ARM64_URL=$ARM64_URL" >> $GITHUB_ENV
-          echo "ALIST_CHANGELOG=$CHANGELOG" >> $GITHUB_ENV
+          # 设置环境变量
+          echo "OPENLIST_VERSION=$VERSION" >> $GITHUB_ENV
+          echo "OPENLIST_VERSION_CODE=$VERSION_CODE" >> $GITHUB_ENV
+          echo "OPENLIST_ARM_URL=$ARM_URL" >> $GITHUB_ENV
+          echo "OPENLIST_ARM64_URL=$ARM64_URL" >> $GITHUB_ENV
+          echo "OPENLIST_CHANGELOG=$CHANGELOG" >> $GITHUB_ENV
 
       # 检查当前模块版本
       - name: 检查当前模块版本
@@ -86,489 +95,90 @@ jobs:
       - name: 检查是否需要构建
         id: should_build
         run: |
-          if [ "${{ env.CURRENT_VERSION }}" = "none" ] || [ "${{ env.ALIST_VERSION }}" != "${{ env.CURRENT_VERSION }}" ]; then
-            echo "需要构建新模块：AList 版本 ${{ env.ALIST_VERSION }}，当前模块版本 ${{ env.CURRENT_VERSION }}"
+          if [ "${{ env.CURRENT_VERSION }}" = "none" ] || [ "${{ env.OPENLIST_VERSION }}" != "${{ env.CURRENT_VERSION }}" ]; then
+            echo "需要构建新模块：OpenList 版本 ${{ env.OPENLIST_VERSION }}，当前模块版本 ${{ env.CURRENT_VERSION }}"
             echo "SHOULD_BUILD=true" >> $GITHUB_ENV
           else
-            echo "模块版本已是最新 (${{ env.ALIST_VERSION }})，无需构建"
+            echo "模块版本已是最新 (${{ env.OPENLIST_VERSION }})，无需构建"
             echo "SHOULD_BUILD=false" >> $GITHUB_ENV
           fi
 
-      # 构建 Magisk 模块
-      - name: 构建 Magisk 模块
+      # 同步 OpenList 二进制文件
+      - name: 同步 OpenList 二进制文件
         if: env.SHOULD_BUILD == 'true'
         run: |
-          rm -rf Alist-Magisk
-          mkdir -p Alist-Magisk/system/bin
-
-          curl -L -o alist-arm.tar.gz "${{ env.ALIST_ARM_URL }}"
-          tar -xzf alist-arm.tar.gz -C Alist-Magisk/system/bin
-          mv Alist-Magisk/system/bin/alist Alist-Magisk/system/bin/alist-arm
+          # 下载并解压 ARM 版本
+          curl -L -o alist-arm.tar.gz "${{ env.OPENLIST_ARM_URL }}"
+          tar -xzf alist-arm.tar.gz
+          mv openlist alist-arm
           rm -f alist-arm.tar.gz
 
-          curl -L -o alist-arm64.tar.gz "${{ env.ALIST_ARM64_URL }}"
-          tar -xzf alist-arm64.tar.gz -C Alist-Magisk/system/bin
-          mv Alist-Magisk/system/bin/alist Alist-Magisk/system/bin/alist-arm64
+          # 下载并解压 ARM64 版本
+          curl -L -o alist-arm64.tar.gz "${{ env.OPENLIST_ARM64_URL }}"
+          tar -xzf alist-arm64.tar.gz
+          mv openlist alist-arm64
           rm -f alist-arm64.tar.gz
 
-          chmod 755 Alist-Magisk/system/bin/alist-arm Alist-Magisk/system/bin/alist-arm64
+          # 移动二进制文件到模块目录
+          mv alist-arm alist-Magisk/
+          mv alist-arm64 alist-Magisk/
 
-          # 创建 module.prop
-          cat > Alist-Magisk/module.prop << EOF
-          id=alist-magisk
-          name=AList Magisk Module
-          version=${{ env.ALIST_VERSION }}
-          versionCode=${{ env.ALIST_VERSION_CODE }}
-          author=Alien-Et
-          description=【已停止】请点击"操作"启动程序。项目地址：https://github.com/Alien-Et/Alist-Magisk
-          updateJson=https://raw.githubusercontent.com/Alien-Et/Alist-Magisk/main/update.json
-          EOF
+          # 设置权限
+          chmod 755 alist-Magisk/alist-arm alist-Magisk/alist-arm64
 
-          # 创建 customize.sh
-          cat > Alist-Magisk/customize.sh << 'EOF'
-          #!/system/bin/sh
-          ui_print "正在安装 AList Magisk 模块..."
-          ARCH=$(getprop ro.product.cpu.abi)
-          ui_print "检测到架构: $ARCH"
-
-          if echo "$ARCH" | grep -q "arm64"; then
-            ui_print "安装 64 位 AList 二进制..."
-            mv $MODPATH/system/bin/alist-arm64 $MODPATH/system/bin/alist
-            rm $MODPATH/system/bin/alist-arm
-          else
-            ui_print "安装 32 位 AList 二进制..."
-            mv $MODPATH/system/bin/alist-arm $MODPATH/system/bin/alist
-            rm $MODPATH/system/bin/alist-arm64
-          fi
-
-          chmod 755 $MODPATH/system/bin/alist
-          ui_print "AList 已安装到 /system/bin/alist"
-          EOF
-
-          # 创建 service.sh
-          cat > Alist-Magisk/service.sh << 'EOF'
-          #!/system/bin/sh
-          # service.sh for AList Magisk Module
-
-          MODDIR=${0%/*}
-          DATA_DIR="$MODDIR/data"
-          ALIST_BINARY="/system/bin/alist"
-          MODULE_PROP="$MODDIR/module.prop"
-          PASSWORD_FILE="$MODDIR/随机密码.txt"
-          LOG_FILE="$MODDIR/service.log"
-
-          log() {
-              echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
-          }
-
-          get_lan_ip() {
-              LAN_IP=$(ip addr show wlan0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)
-              [ -z "$LAN_IP" ] && LAN_IP=$(ifconfig wlan0 2>/dev/null | grep 'inet ' | awk '{print $2}')
-              [ -z "$LAN_IP" ] && LAN_IP="192.168.x.x"
-              log "get_lan_ip: LAN_IP=$LAN_IP"
-              echo "$LAN_IP"
-          }
-
-          generate_random_password() {
-              log "Attempting to generate random password"
-              OUTPUT=$($ALIST_BINARY admin random --data "$DATA_DIR" 2>&1 | \
-                       grep -E "username|password" | \
-                       awk '/username/ {print "账号：" $NF} /password/ {print "密码：" $NF}')
-              if [ -n "$OUTPUT" ]; then
-                  echo "$OUTPUT" > "$PASSWORD_FILE"
-                  chmod 600 "$PASSWORD_FILE"
-                  log "Password file created at $PASSWORD_FILE with content: $OUTPUT"
-                  echo "$OUTPUT"
-              else
-                  log "Error: Failed to generate or capture username and password"
-                  return 1
-              fi
-          }
-
-          update_module_prop_running() {
-              LAN_IP=$(get_lan_ip)
-              
-              log "Updating module.prop for running state, LAN_IP=$LAN_IP"
-              # 确保 module.prop 存在且可写
-              if [ ! -f "$MODULE_PROP" ]; then
-                  log "Error: $MODULE_PROP does not exist"
-                  return 1
-              fi
-              if [ ! -w "$MODULE_PROP" ]; then
-                  log "Error: $MODULE_PROP is not writable"
-                  chmod 644 "$MODULE_PROP" || log "Error: Failed to set permissions on $MODULE_PROP"
-              fi
-              # 记录更新前的 module.prop 内容
-              log "module.prop content before update: $(cat "$MODULE_PROP")"
-              # 添加分隔符和账密提示信息
-              NEW_DESC="description=【运行中】局域网地址：http://${LAN_IP}:5244 | 初始账密请移步到\"/data/adb/modules/alist-magisk/随机密码.txt\"查看"
-              # 使用临时文件更新 module.prop，避免生成备份文件-apple
-              echo "$(grep -v '^description=' "$MODULE_PROP")" > "${MODULE_PROP}.tmp"
-              echo "$NEW_DESC" >> "${MODULE_PROP}.tmp"
-              mv "${MODULE_PROP}.tmp" "$MODULE_PROP"
-              if [ $? -eq 0 ]; then
-                  log "Updated module.prop successfully"
-              else
-                  log "Error: Failed to update module.prop"
-              fi
-              # 清理任何可能的备份文件
-              rm -f "${MODULE_PROP}.bak" "${MODULE_PROP}.tmp.*"
-              # 检查 module.prop 是否包含非键值对行
-              if grep -vE '^[a-zA-Z_]+=' "$MODULE_PROP" > /dev/null; then
-                  log "Warning: module.prop contains invalid lines, cleaning up"
-                  grep -E '^[a-zA-Z_]+=' "$MODULE_PROP" > "${MODULE_PROP}.clean"
-                  mv "${MODULE_PROP}.clean" "$MODULE_PROP"
-                  log "Cleaned module.prop content: $(cat "$MODULE_PROP")"
-              fi
-          }
-
-          log "Starting service.sh at $(date '+%Y-%m-%d %H:%M:%S')"
-          # 检查 ip 命令是否存在
-          if ! command -v ip >/dev/null 2>&1; then
-              log "Error: ip command not found"
-              exit 1
-          fi
-          # 检查 alist 二进制文件
-          if [ ! -x "$ALIST_BINARY" ]; then
-              log "Error: $ALIST_BINARY is not executable or does not exist"
-              exit 1
-          fi
-
-          ELAPSED=0
-          MAX_WAIT=60
-          WAIT_INTERVAL=5
-          while [ $ELAPSED -lt $MAX_WAIT ]; do
-              if [ "$(getprop sys.boot_completed)" = "1" ]; then
-                  log "Android system boot completed"
-                  break
-              fi
-              log "Waiting for Android system boot... ($ELAPSED/$MAX_WAIT seconds)"
-              sleep $WAIT_INTERVAL
-              ELAPSED=$((ELAPSED + WAIT_INTERVAL))
-          done
-
-          if [ $ELAPSED -ge $MAX_WAIT ]; then
-              log "Warning: System boot timeout, attempting to start AList service"
-          fi
-
-          mkdir -p "$DATA_DIR"
-          log "Created data directory: $DATA_DIR"
-
-          $ALIST_BINARY server --data "$DATA_DIR" &
-          sleep 1
-          if pgrep -f alist >/dev/null; then
-              log "AList service started successfully"
-              if [ ! -f "$PASSWORD_FILE" ]; then
-                  generate_random_password || log "Password generation failed, continuing"
-              else
-                  log "Detected $PASSWORD_FILE, skipping password generation"
-              fi
-              update_module_prop_running
-          else
-              log "Failed to start AList service"
-              exit 1
-          fi
-          EOF
-
-          # 创建 action.sh
-          cat > Alist-Magisk/action.sh << 'EOF'
-          #!/system/bin/sh
-          # action.sh for AList Magisk Module
-
-          MODDIR=${0%/*}
-          ALIST_BINARY="/system/bin/alist"
-          DATA_DIR="$MODDIR/data"
-          MODULE_PROP="$MODDIR/module.prop"
-          SERVICE_SH="$MODDIR/service.sh"
-          REPO_URL="https://github.com/Alien-Et/Alist-Magisk"
-          LOG_FILE="$MODDIR/action.log"
-
-          log() {
-              echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" >> "$LOG_FILE"
-          }
-
-          check_alist_status() {
-              if pgrep -f alist >/dev/null; then
-                  return 0
-              else
-                  return 1
-              fi
-          }
-
-          update_module_prop_stopped() {
-              sed -i "s|^description=.*|description=【已停止】请点击\"操作\"启动程序。项目地址：${REPO_URL}|" "$MODULE_PROP"
-              log "Updated module.prop to stopped state"
-          }
-
-          log "Starting action.sh"
-          if check_alist_status; then
-              pkill -f alist
-              sleep 1
-              if check_alist_status; then
-                  log "Failed to stop AList service"
-                  echo "无法停止 AList 服务"
-                  exit 1
-              else
-                  log "AList service stopped"
-                  echo "AList 服务已停止"
-                  update_module_prop_stopped
-              fi
-          else
-              if [ -f "$SERVICE_SH" ]; then
-                  sh "$SERVICE_SH"
-                  sleep 1
-                  if check_alist_status; then
-                      log "AList service started successfully"
-                      echo "AList 服务启动成功"
-                  else
-                      log "Failed to start AList service"
-                      echo "无法启动 AList 服务"
-                      exit 1
-                  fi
-              else
-                  log "Error: service.sh not found"
-                  echo "错误：service.sh 不存在"
-                  exit 1
-              fi
-          fi
-          EOF
-          chmod 755 Alist-Magisk/action.sh
-
-          # 创建 update.json
+      # 更新配置文件
+      - name: 更新配置文件
+        if: env.SHOULD_BUILD == 'true'
+        run: |
+          # 更新 update.json
           cat > update.json << EOF
           {
-              "version": "${{ env.ALIST_VERSION }}",
-              "versionCode": ${{ env.ALIST_VERSION_CODE }},
-              "zipUrl": "https://github.com/Alien-Et/Alist-Magisk/releases/download/${{ env.ALIST_VERSION }}/alist-magisk-${{ env.ALIST_VERSION }}.zip",
-              "changelog": "https://raw.githubusercontent.com/Alien-Et/Alist-Magisk/main/Alist-Magisk/CHANGELOG.md"
+              "version": "${{ env.OPENLIST_VERSION }}",
+              "versionCode": ${{ env.OPENLIST_VERSION_CODE }},
+              "zipUrl": "${{ github.server_url }}/${{ github.repository }}/releases/download/${{ env.OPENLIST_VERSION }}/alist-magisk-${{ env.OPENLIST_VERSION }}.zip",
+              "changelog": "${{ github.server_url }}/${{ github.repository }}/raw/main/alist-Magisk/CHANGELOG.md"
           }
           EOF
 
-          # 创建 CHANGELOG.md
-          cat > Alist-Magisk/CHANGELOG.md << EOF
-          # Changelog
-          - ${{ env.ALIST_VERSION }}: Synced with AList official release ${{ env.ALIST_VERSION }}
-          ${{ env.ALIST_CHANGELOG }}
-          EOF
+          # 更新 module.prop
+          if [ -f alist-Magisk/module.prop ]; then
+            sed -i "s/^version=.*/version=${{ env.OPENLIST_VERSION }}/" alist-Magisk/module.prop
+            sed -i "s/^versionCode=.*/versionCode=${{ env.OPENLIST_VERSION_CODE }}/" alist-Magisk/module.prop
+          else
+            echo "::error::module.prop 文件不存在"
+            exit 1
+          fi
 
-          # 创建模块专用的 README.md
-          cat > Alist-Magisk/README.md << EOF
-          # AList Magisk 模块安装指南
-
-          本模块将 [AList](https://github.com/AlistGo/alist) 文件服务器集成到 Android 系统中，当前版本：${{ env.ALIST_VERSION }}。
-
-          ## 功能
-          - 自动同步 AList 官方版本
-          - 支持 ARM 和 ARM64 架构
-          - 首次启动生成随机管理员账号和密码，保存到 \`/data/adb/modules/alist-magisk/随机密码.txt\`（格式为“账号：xxx”和“密码：xxx”）
-          - 系统启动后自动运行 AList 服务，数据存储在模块的 \`data\` 目录（/data/adb/modules/alist-magisk/data）
-          - 通过 Magisk 的“动作”按钮切换 AList 服务状态
-          - 仅在“运行中”状态下，module.prop 的 description 显示账号和密码
-
-          ## 安装流程
-          1. **准备工作**：
-             - 确保设备已安装 Magisk（建议 v28.0 或更高版本以支持动作按钮）。
-             - 设备已获得 Root 权限。
-             - 确保有网络连接以下载模块。
-
-          2. **下载模块**：
-             - 从 [GitHub Releases](https://github.com/Alien-Et/Alist-Magisk/releases) 下载最新模块 ZIP 文件（例如：alist-magisk-${{ env.ALIST_VERSION }}.zip）。
-
-          3. **安装模块**：
-             - 打开 Magisk 应用，进入“模块”选项卡。
-             - 点击“从本地安装”，选择下载的 ZIP 文件。
-             - 安装过程会显示：
-               - 设备架构（ARM 或 ARM64）。
-               - AList 二进制安装路径（/system/bin/alist）。
-             - 安装完成后，重启设备以启动 AList 服务并生成初始密码。
-
-          4. **验证安装**：
-             - 检查 \`/data/adb/modules/alist-magisk/随机密码.txt\` 是否存在，格式为：
-               \`\`\`
-               账号：xxx
-               密码：xxx
-               \`\`\`
-             - 查看 \`/data/adb/modules/alist-magisk/module.prop\`，在“运行中”状态下确认 description 包含：
-               \`\`\`
-               【运行中】局域网地址：http://<IP>:5244 项目地址：https://github.com/Alien-Et/Alist-Magisk | 初始账号：xxx | 初始密码：xxx（仅未手动修改时有效）
-               \`\`\`
-             - 运行以下命令检查 AList 服务：
-               \`\`\`bash
-               alist version
-               \`\`\`
-             - 访问 AList Web 界面（默认：http://localhost:5244，使用 \`随机密码.txt\` 中的账号和密码登录）。
-
-          ## 使用说明
-          - **服务管理**：
-            - AList 服务在系统启动完成后自动运行（通过 service.sh），模块描述显示：
-              \`\`\`
-              【运行中】局域网地址：http://<设备IP>:5244 项目地址：https://github.com/Alien-Et/Alist-Magisk | 初始账号：xxx | 初始密码：xxx（仅未手动修改时有效）
-              \`\`\`
-            - 在 Magisk 应用中点击“动作”按钮：
-              - 如果 AList 服务正在运行，点击停止服务，模块描述更新为：
-                \`\`\`
-                【已停止】请点击"操作"启动程序。项目地址：https://github.com/Alien-Et/Alist-Magisk
-                \`\`\`
-              - 如果 AList 服务未运行，点击启动服务，模块描述恢复为“运行中”状态。
-          - **数据目录**：AList 数据存储在 \`/data/adb/modules/alist-magisk/data\`，覆盖安装不会重置密码（除非手动删除 随机密码.txt）。
-          - **密码生成**：
-            - 首次安装并重启后，自动生成随机密码，保存到 \`随机密码.txt\`。
-            - 后续重启若 \`随机密码.txt\` 存在，则不修改密码；若不存在，则生成新密码。
-            - 密码格式：
-              \`\`\`
-              账号：admin
-              密码：xxxxxxxx
-              \`\`\`
-            - 初始账号和密码仅在“运行中”状态下显示在 module.prop 的 description 中，带备注“仅未手动修改时有效”。
-          - **更新模块**：通过 Magisk 检查更新，或手动下载最新 ZIP 文件重新安装。
-          - **卸载模块**：在 Magisk 中禁用或删除模块，重启设备（data 目录和 随机密码.txt 需手动清理）。
-
-          ## 常见问题
-          - **Q: 无法访问 Web 界面？**
-            - 确保网络正常，尝试使用设备 IP 访问（http://<设备IP>:5244）。
-            - 检查服务状态：
-              \`\`\`bash
-              pgrep -f alist
-              \`\`\`
-            - 手动启动服务：
-              \`\`\`bash
-              su -c /data/adb/modules/alist-magisk/action.sh
-              \`\`\`
-          - **Q: 密码丢失？**
-            - 查看 \`/data/adb/modules/alist-magisk/随机密码.txt\` 或 module.prop 的 description（“运行中”状态）。
-            - 若 随机密码.txt 被删除，可重启设备重新生成密码。
-          - **Q: 动作按钮无法停止服务？**
-            - 确保 Magisk 版本 >= v28.0。
-            - 手动检查：
-              \`\`\`bash
-              su -c pkill -f alist
-              su -c /data/adb/modules/alist-magisk/action.sh
-              \`\`\`
-          - **Q: module.prop 未显示账号和密码？**
-            - 确认 AList 服务是否运行：
-              \`\`\`bash
-              pgrep -f alist
-              \`\`\`
-            - 检查 \`随机密码.txt\` 内容和格式：
-              \`\`\`bash
-              cat /data/adb/modules/alist-magisk/随机密码.txt
-              \`\`\`
-            - 查看日志：
-              \`\`\`bash
-              cat /data/adb/modules/alist-magisk/service.log
-              \`\`\`
-            - 手动运行 service.sh：
-              \`\`\`bash
-              su -c /data/adb/modules/alist-magisk/service.sh
-              \`\`\`
-            - 检查 module.prop：
-              \`\`\`bash
-              cat /data/adb/modules/alist-magisk/module.prop
-              \`\`\`
-
-          ## 更多信息
-          访问 [项目主页](https://github.com/Alien-Et/Alist-Magisk) 获取完整文档和更新日志。
-          EOF
-
-          # 创建根目录 README.md
-          cat > README.md << EOF
-          # AList Magisk 模块
-
-          [![Release](https://img.shields.io/github/v/release/Alien-Et/Alist-Magisk)](https://github.com/Alien-Et/Alist-Magisk/releases)
-          [![License](https://img.shields.io/github/license/Alien-Et/Alist-Magisk)](https://github.com/Alien-Et/Alist-Magisk/blob/main/LICENSE)
-
-          AList Magisk 模块将 [AList](https://github.com/AlistGo/alist) 文件服务器集成到 Android 系统中，通过 Magisk 以系统化方式运行，支持 ARM 和 ARM64 架构。
-
-          ## 功能亮点
-          - **自动同步最新版本**：与 AList 官方版本保持一致（当前版本：${{ env.ALIST_VERSION }}）。
-          - **系统级集成**：将 AList 二进制文件安装到 /system/bin，系统启动后自动运行服务。
-          - **随机凭据生成**：首次启动服务时生成管理员账号和密码，保存至 /data/adb/modules/alist-magisk/随机密码.txt（格式为“账号：xxx”和“密码：xxx”），后续重启若文件存在则不重置密码。
-          - **动态服务管理**：通过 Magisk 的“动作”按钮启动或停止 AList 服务，module.prop 的 description 字段动态更新运行状态和访问地址。
-          - **更新支持**：通过 update.json 提供模块更新检查。
-          - **轻量高效**：占用空间小，适合 Android 设备。
-
-          ## 快速开始
-          1. **下载模块**：
-             - 从 [GitHub Releases](https://github.com/Alien-Et/Alist-Magisk/releases) 下载最新模块 ZIP 文件（例如：alist-magisk-${{ env.ALIST_VERSION }}.zip）。
-          2. **安装模块**：
-             - 打开 Magisk 应用，进入“模块”选项卡。
-             - 点击“从本地安装”，选择下载的 ZIP 文件。
-             - 安装过程会显示设备架构（ARM 或 ARM64）及 AList 二进制安装路径（/system/bin/alist）。
-             - 安装完成后，重启设备以应用模块并启动 AList 服务。
-          3. **使用模块**：
-             - 查看 /data/adb/modules/alist-magisk/随机密码.txt 获取初始账号和密码。
-             - 访问 AList Web 界面（默认：http://localhost:5244 或 http://<设备IP>:5244），使用 随机密码.txt 中的凭据登录。
-             - 在 Magisk 应用中点击“动作”按钮切换服务状态，module.prop 的描述会更新为：
-               - 运行中：【运行中】局域网地址：http://<设备IP>:5244 | 初始账密请移步到"/data/adb/modules/alist-magisk/随机密码.txt"查看
-               - 已停止：【已停止】请点击"操作"启动程序。项目地址：https://github.com/Alien-Et/Alist-Magisk
-
-          ## 详细文档
-          - **安装与使用指南**：查看 [模块自述文件](Alist-Magisk/README.md) 获取详细安装步骤和故障排除方法。
-          - **更新日志**：查看 [CHANGELOG.md](Alist-Magisk/CHANGELOG.md) 了解版本更新内容。
-          - **问题反馈**：在 [Issue](https://github.com/Alien-Et/Alist-Magisk/issues) 页面提交问题或建议。
-
-          ## 功能详情
-          - **服务管理**：
-            - 系统启动后，AList 服务通过 service.sh 自动运行，数据存储在 /data/adb/modules/alist-magisk/data。
-            - 使用 Magisk 的“动作”按钮（需 Magisk v28.0 或更高版本）切换服务状态：
-              - 服务运行时，module.prop 显示运行状态和局域网访问地址，提示用户查看 随机密码.txt 获取凭据。
-              - 服务停止时，module.prop 显示停止状态和项目地址。
-          - **密码管理**：
-            - 首次启动生成随机账号和密码，保存至 /data/adb/modules/alist-magisk/随机密码.txt（格式：账号：admin\n密码：xxxxxxxx）。
-            - 若 随机密码.txt 存在，后续重启不会重置密码；若文件被删除，则重新生成。
-          - **数据持久性**：覆盖安装模块不会重置 data 目录或 随机密码.txt，需手动清理。
-          - **日志支持**：服务日志保存在 /data/adb/modules/alist-magisk/service.log，便于调试。
-
-          ## 常见问题
-          - **Q: 无法访问 AList Web 界面？**
-            - 确保网络正常，尝试使用设备 IP 访问（http://<设备IP>:5244）。
-            - 检查服务状态：pgrep -f alist
-            - 手动启动服务：su -c /data/adb/modules/alist-magisk/action.sh
-          - **Q: 密码丢失？**
-            - 查看 /data/adb/modules/alist-magisk/随机密码.txt。
-            - 若文件丢失，重启设备重新生成密码。
-          - **Q: 动作按钮无效？**
-            - 确保 Magisk 版本 >= v28.0。
-            - 手动操作：su -c pkill -f alist 或 su -c /data/adb/modules/alist-magisk/action.sh
-          - **Q: module.prop 未更新？**
-            - 确认服务运行：pgrep -f alist
-            - 检查日志：cat /data/adb/modules/alist-magisk/service.log
-            - 手动运行：su -c /data/adb/modules/alist-magisk/service.sh
-
-          ## 贡献
-          - 欢迎提交 Pull Request 或 Issue。
-          - 感谢 [AList](https://github.com/AlistGo/alist) 项目提供支持。
-
-          ## 许可证
-          本项目基于 [MIT 许可证](LICENSE) 发布。
-          EOF
-
+          # 提交更改
           git config user.name "GitHub Actions"
           git config user.email "actions@github.com"
-          git add Alist-Magisk/ update.json README.md
-          git commit -m "更新 AList Magisk 模块文件到 ${{ env.ALIST_VERSION }}" || echo "无更改需要提交"
-          git push https://x-access-token:${{ env.GITHUB_TOKEN }}@github.com/Alien-Et/Alist-Magisk.git
+          git add update.json OpenList-Magisk/module.prop
+          git commit -m "更新模块到 OpenList ${{ env.OPENLIST_VERSION }}" || echo "无更改需要提交"
+          git push origin main
 
-          cd Alist-Magisk
-          zip -r ../alist-magisk-${{ env.ALIST_VERSION }}.zip module.prop customize.sh service.sh action.sh system CHANGELOG.md README.md
+      # 打包模块
+      - name: 打包模块
+        if: env.SHOULD_BUILD == 'true'
+        run: |
+          cd OpenList-Magisk
+          zip -r ../alist-magisk-${{ env.OPENLIST_VERSION }}.zip .
           cd ..
 
-      # 创建 GitHub Release 并上传模块
-      - name: 创建 GitHub Release 并上传模块
+      # 创建 Release
+      - name: 创建 Release
         if: env.SHOULD_BUILD == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.ALIST_VERSION }}
-          name: AList Magisk Module ${{ env.ALIST_VERSION }}
-          draft: false
-          prerelease: false
-          files: alist-magisk-${{ env.ALIST_VERSION }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ env.OPENLIST_VERSION }}" \
+            --title "alist Magisk Module ${{ env.OPENLIST_VERSION }}" \
+            --notes "Synced with OpenList official release v${{ env.OPENLIST_VERSION }}\n${{ env.OPENLIST_CHANGELOG }}" \
+            --draft=false \
+            --prerelease=false \
+            "alist-magisk-${{ env.OPENLIST_VERSION }}.zip"
 
-      # 清理工作目录
-      - name: 清理工作目录
+      # 清理临时文件
+      - name: 清理临时文件
         if: always()
         run: |
           rm -rf alist-magisk-*.zip alist-arm*.tar.gz latest_release.json
-          echo "已清理临时文件：alist-magisk-*.zip, alist-arm*.tar.gz, latest_release.json"
