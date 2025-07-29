@@ -1,7 +1,7 @@
 id=alist
 name=AList Magisk Module
-version=v3.46.2
-versionCode=346200
+version=v3.47.0
+versionCode=347000
 author=Alien-Et
 description=【已停止】请点击"操作"启动程序。项目地址：https://github.com/Alien-Et/AList-Magisk
 updateJson=https://raw.githubusercontent.com/Alien-Et/AList-Magisk/main/update.json
